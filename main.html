@@ -23,207 +23,103 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const auth = getAuth(app);
+    
     window.db = db;
     window.auth = auth;
     window.firebaseRef = ref;
     window.firebaseSet = set;
     window.firebaseUpdate = update;
     window.firebaseOnValue = onValue;
+    window.firebaseSignIn = signInWithEmailAndPassword;
+    window.firebaseSignOut = signOut;
+    window.firebaseOnAuthStateChanged = onAuthStateChanged;
+
+    console.log('✅ Firebase initialized');
   </script>
   <style>
-    /* All existing styles remain exactly the same */
+    /* All styles unchanged */
     :root {
-      --bg1: #0f172a;
-      --bg2: #1e293b;
-      --card: rgba(255, 255, 255, 0.08);
-      --card-border: rgba(255, 255, 255, 0.14);
-      --text: #e2e8f0;
-      --muted: #94a3b8;
-      --accent: #38bdf8;
-      --accent2: #8b5cf6;
-      --danger: #fb7185;
-      --success: #34d399;
-      --warning: #fbbf24;
-      --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-      --our-highlight: #2563eb;
-      --polled-highlight: #dc2626;
+      --bg1: #0f172a; --bg2: #1e293b; --card: rgba(255, 255, 255, 0.08); --card-border: rgba(255, 255, 255, 0.14);
+      --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --accent2: #8b5cf6; --danger: #fb7185; --success: #34d399;
+      --warning: #fbbf24; --shadow: 0 20px 60px rgba(0, 0, 0, 0.35); --our-highlight: #2563eb; --polled-highlight: #dc2626;
       --ourpolled-highlight: #16a34a;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      min-height: 100vh;
-      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100vh; font-family: 'Inter', system-ui, sans-serif;
       background: radial-gradient(circle at top left, rgba(56,189,248,0.22), transparent 30%),
                   radial-gradient(circle at bottom right, rgba(139,92,246,0.2), transparent 28%),
                   linear-gradient(135deg, var(--bg1), var(--bg2));
-      color: var(--text);
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      color: var(--text); padding: 24px; display: flex; flex-direction: column; align-items: center;
     }
     .app-container { width: 100%; max-width: 1400px; }
     .glass-card {
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      border-radius: 28px;
-      box-shadow: var(--shadow);
-      padding: 24px 28px;
-      margin-bottom: 24px;
+      background: var(--card); border: 1px solid var(--card-border); backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px); border-radius: 28px; box-shadow: var(--shadow);
+      padding: 24px 28px; margin-bottom: 24px;
     }
-    .booth-header {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-    }
+    .booth-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
     .booth-info h1 {
-      font-size: 1.8rem;
-      background: linear-gradient(135deg, #fff, #cbd5e1);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      margin-bottom: 6px;
+      font-size: 1.8rem; background: linear-gradient(135deg, #fff, #cbd5e1);
+      -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 6px;
     }
-    .booth-meta {
-      display: flex;
-      gap: 24px;
-      color: var(--muted);
-      font-size: 1rem;
-    }
+    .booth-meta { display: flex; gap: 24px; color: var(--muted); font-size: 1rem; }
     .booth-meta i { margin-right: 6px; color: var(--accent); }
     .action-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
     .btn {
-      border: none;
-      border-radius: 16px;
-      padding: 12px 20px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      font-size: 0.95rem;
-      background: rgba(255,255,255,0.05);
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.1);
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
+      border: none; border-radius: 16px; padding: 12px 20px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s ease; font-size: 0.95rem; background: rgba(255,255,255,0.05); color: #fff;
+      border: 1px solid rgba(255,255,255,0.1); display: inline-flex; align-items: center; gap: 8px;
       backdrop-filter: blur(8px);
     }
-    .btn-primary {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      box-shadow: 0 8px 20px rgba(56,189,248,0.2);
-      border: none;
-    }
+    .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow: 0 8px 20px rgba(56,189,248,0.2); border: none; }
     .btn-outline { background: transparent; border: 1px solid var(--card-border); }
     .btn-outline:hover { background: rgba(255,255,255,0.08); }
     .btn-primary:hover { transform: translateY(-2px); filter: brightness(1.05); }
     .btn-danger { border-color: var(--danger); color: var(--danger); }
     .btn-danger:hover { background: rgba(251,113,133,0.15); }
     .btn:disabled { opacity: 0.5; pointer-events: none; }
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px,1fr));
-      gap: 16px;
-      margin: 20px 0 10px;
-    }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 16px; margin: 20px 0 10px; }
     .stat-card {
-      background: rgba(15,23,42,0.6);
-      border-radius: 20px;
-      padding: 16px 12px;
-      border: 1px solid rgba(255,255,255,0.06);
-      text-align: center;
+      background: rgba(15,23,42,0.6); border-radius: 20px; padding: 16px 12px;
+      border: 1px solid rgba(255,255,255,0.06); text-align: center;
     }
     .stat-value { font-size: 2.2rem; font-weight: 700; line-height: 1.2; }
     .stat-percent { font-size: 0.9rem; font-weight: 400; margin-left: 6px; opacity: 0.8; }
-    .stat-label {
-      color: var(--muted);
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-top: 4px;
-    }
-    .stat-our { color: var(--success); }
-    .stat-polled { color: var(--danger); }
-    .stat-ourpolled { color: var(--success); }
-    .stat-balance { color: var(--accent); }
-    .controls-bar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
+    .stat-label { color: var(--muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+    .stat-our { color: var(--success); } .stat-polled { color: var(--danger); } .stat-ourpolled { color: var(--success); } .stat-balance { color: var(--accent); }
+    .controls-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
     .search-wrapper {
-      display: flex;
-      align-items: center;
-      background: rgba(15,23,42,0.6);
-      border-radius: 40px;
-      padding: 4px 4px 4px 18px;
-      border: 1px solid var(--card-border);
-      flex: 1 1 260px;
+      display: flex; align-items: center; background: rgba(15,23,42,0.6); border-radius: 40px;
+      padding: 4px 4px 4px 18px; border: 1px solid var(--card-border); flex: 1 1 260px;
     }
     .search-wrapper i { color: var(--muted); }
     .search-wrapper input {
-      background: transparent;
-      border: none;
-      padding: 12px 12px;
-      color: var(--text);
-      font-size: 1rem;
-      width: 100%;
-      outline: none;
+      background: transparent; border: none; padding: 12px 12px; color: var(--text);
+      font-size: 1rem; width: 100%; outline: none;
     }
     .filter-group { display: flex; gap: 8px; flex-wrap: wrap; }
     .filter-btn {
-      padding: 8px 16px;
-      border-radius: 30px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--card-border);
-      color: var(--muted);
-      cursor: pointer;
-      font-weight: 500;
-      transition: all 0.2s;
+      padding: 8px 16px; border-radius: 30px; background: rgba(255,255,255,0.03);
+      border: 1px solid var(--card-border); color: var(--muted); cursor: pointer; font-weight: 500; transition: all 0.2s;
     }
     .filter-btn.active { background: var(--accent); color: #0f172a; border-color: var(--accent); }
     .voter-table-container {
-      max-height: 600px;
-      overflow-y: auto;
-      border-radius: 20px;
-      background: rgba(0,0,0,0.2);
-      margin-top: 8px;
-      scroll-behavior: smooth;
+      max-height: 600px; overflow-y: auto; border-radius: 20px; background: rgba(0,0,0,0.2);
+      margin-top: 8px; scroll-behavior: smooth;
     }
     table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
     th {
-      position: sticky;
-      top: 0;
-      background: #1e293b;
-      padding: 16px 12px;
-      text-align: left;
-      color: #cbd5e1;
-      font-weight: 600;
-      backdrop-filter: blur(10px);
-      z-index: 2;
+      position: sticky; top: 0; background: #1e293b; padding: 16px 12px; text-align: left;
+      color: #cbd5e1; font-weight: 600; backdrop-filter: blur(10px); z-index: 2;
     }
     td { padding: 12px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
     tr.voter-row { cursor: pointer; transition: background 0.15s; }
     tr.voter-row:hover { background: rgba(255,255,255,0.06) !important; }
-    tr.selected-row {
-      outline: 2px solid var(--accent);
-      outline-offset: -2px;
-      background: rgba(56,189,248,0.15) !important;
-    }
+    tr.selected-row { outline: 2px solid var(--accent); outline-offset: -2px; background: rgba(56,189,248,0.15) !important; }
     .status-badge {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 40px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
+      display: inline-block; padding: 4px 12px; border-radius: 40px; font-size: 0.8rem;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
     }
     .status-our { background: rgba(37,99,235,0.3); color: #bfdbfe; }
     .status-polled { background: rgba(220,38,38,0.3); color: #fecaca; }
@@ -234,56 +130,19 @@
     .sl-polled { background-color: var(--polled-highlight) !important; color: white; }
     .sl-ourpolled { background-color: var(--ourpolled-highlight) !important; color: white; }
     .empty-message { text-align: center; padding: 48px; color: var(--muted); }
-    .footer-note {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 16px;
-      color: var(--muted);
-      font-size: 0.85rem;
-    }
+    .footer-note { display: flex; justify-content: space-between; margin-top: 16px; color: var(--muted); font-size: 0.85rem; }
     .readonly-badge {
-      background: var(--warning);
-      color: #0f172a;
-      padding: 4px 12px;
-      border-radius: 40px;
-      font-weight: 600;
-      font-size: 0.8rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-left: 12px;
+      background: var(--warning); color: #0f172a; padding: 4px 12px; border-radius: 40px;
+      font-weight: 600; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px; margin-left: 12px;
     }
-    .connection-status {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #4ade80;
-      margin-right: 8px;
-      box-shadow: 0 0 10px #4ade80;
-    }
-    .login-card {
-      max-width: 400px;
-      margin: 0 auto;
-    }
-    .login-card h2 {
-      margin-bottom: 16px;
-      font-size: 1.5rem;
-    }
+    .connection-status { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #4ade80; margin-right: 8px; box-shadow: 0 0 10px #4ade80; }
+    .login-card { max-width: 400px; margin: 0 auto; }
+    .login-card h2 { margin-bottom: 16px; font-size: 1.5rem; }
     .login-card input {
-      width: 100%;
-      padding: 14px 16px;
-      border-radius: 16px;
-      border: 1px solid var(--card-border);
-      background: rgba(15,23,42,0.6);
-      color: var(--text);
-      font-size: 1rem;
-      margin-bottom: 12px;
+      width: 100%; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--card-border);
+      background: rgba(15,23,42,0.6); color: var(--text); font-size: 1rem; margin-bottom: 12px;
     }
-    .login-card .btn {
-      width: 100%;
-      justify-content: center;
-    }
+    .login-card .btn { width: 100%; justify-content: center; }
     @media (max-width: 700px) {
       .glass-card { padding: 18px; }
       .booth-header { flex-direction: column; align-items: start; }
@@ -315,7 +174,7 @@
     <div class="stats-grid" id="statsContainer"></div>
   </div>
 
-  <!-- Login Card (shown only in edit mode when not logged in) -->
+  <!-- Login Card -->
   <div class="glass-card login-card" id="loginCard" style="display: none;">
     <h2><i class="fas fa-lock" style="margin-right: 8px;"></i> Editor Login</h2>
     <p style="color: var(--muted); margin-bottom: 20px;">Enter the shared editor credentials to modify data.</p>
@@ -350,12 +209,8 @@
 
     <div class="voter-table-container" id="tableWrapper">
       <table>
-        <thead>
-          <tr><th>Sl. No</th><th>Status</th><th>Last Updated</th></tr>
-        </thead>
-        <tbody id="voterTableBody">
-          <tr><td colspan="3" class="empty-message">Loading...</td></tr>
-        </tbody>
+        <thead><tr><th>Sl. No</th><th>Status</th><th>Last Updated</th></tr></thead>
+        <tbody id="voterTableBody"><tr><td colspan="3" class="empty-message">Loading...</td></tr></tbody>
       </table>
     </div>
 
@@ -366,22 +221,32 @@
   </div>
 </div>
 
-<script type="module">
-  setTimeout(async () => {
+<script>
+  (function initWhenReady() {
+    if (!window.db || !window.auth) {
+      setTimeout(initWhenReady, 50);
+      return;
+    }
+    console.log('🚀 Starting app with Firebase ready');
+    
     const db = window.db;
     const auth = window.auth;
     const ref = window.firebaseRef;
     const set = window.firebaseSet;
     const update = window.firebaseUpdate;
     const onValue = window.firebaseOnValue;
+    const onAuthStateChanged = window.firebaseOnAuthStateChanged;
+    const signIn = window.firebaseSignIn;
+    const signOutUser = window.firebaseSignOut;
 
-    // Parse URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const boothId = urlParams.get('booth');
     const mode = urlParams.get('mode') || 'edit';
     const totalParam = urlParams.get('total');
     const assemblyParam = urlParams.get('assembly');
     const boothNoParam = urlParams.get('boothNo');
+
+    console.log('📋 URL params:', { boothId, mode, totalParam, assemblyParam, boothNoParam });
 
     let totalVoters = totalParam ? parseInt(totalParam) : 0;
     let boothData = {
@@ -408,7 +273,6 @@
     const loginBtn = document.getElementById('loginBtn');
     const loginError = document.getElementById('loginError');
     const logoutBtn = document.getElementById('logoutBtn');
-
     const backBtn = document.getElementById('backToBoothBtn');
     const shareViewLinkBtn = document.getElementById('shareViewLinkBtn');
     const resetAllBtn = document.getElementById('resetAllBtn');
@@ -416,7 +280,6 @@
     const markPolledBtn = document.getElementById('markPolledBtn');
     const removeStatusBtn = document.getElementById('removeStatusBtn');
 
-    // State
     let voters = [];
     let selectedIndex = -1;
     let currentFilter = 'all';
@@ -433,18 +296,18 @@
     if (!boothId) {
       alert('No booth specified. Redirecting to setup.');
       window.location.href = 'index.html';
-      throw new Error('No booth ID');
+      return;
     }
 
     dbRef = ref(db, `booths/${boothId}`);
+    console.log('🔗 Database reference:', `booths/${boothId}`);
 
-    // ---------- Authentication State Listener ----------
     onAuthStateChanged(auth, (user) => {
+      console.log('👤 Auth state changed:', user ? `User: ${user.email}` : 'No user');
       currentUser = user;
       const needsAuth = !isReadOnly && !user;
       
       if (needsAuth) {
-        // Edit mode but not logged in -> show login, hide voter card
         loginCard.style.display = 'block';
         voterCard.style.display = 'none';
         logoutBtn.style.display = 'none';
@@ -453,7 +316,6 @@
         voterCard.style.display = 'block';
         logoutBtn.style.display = (user && !isReadOnly) ? 'inline-flex' : 'none';
         
-        // Initialize data listener if not already done
         if (!dataListenerUnsubscribe) {
           setupDataListener();
         }
@@ -461,7 +323,6 @@
       applyReadOnlyMode();
     });
 
-    // Login button
     loginBtn.addEventListener('click', async () => {
       const email = loginEmail.value.trim();
       const password = loginPassword.value;
@@ -470,7 +331,7 @@
         return;
       }
       try {
-        await signInWithEmailAndPassword(auth, email, password);
+        await signIn(auth, email, password);
         loginError.textContent = '';
         loginEmail.value = '';
         loginPassword.value = '';
@@ -479,12 +340,10 @@
       }
     });
 
-    // Logout button
     logoutBtn.addEventListener('click', async () => {
-      await signOut(auth);
+      await signOutUser(auth);
     });
 
-    // Connection status
     const connectedRef = ref(db, '.info/connected');
     onValue(connectedRef, (snap) => {
       if (snap.val() === true) {
@@ -494,7 +353,6 @@
       }
     });
 
-    // ---------- Data Functions ----------
     function setupDataListener() {
       dataListenerUnsubscribe = onValue(dbRef, (snapshot) => {
         const data = snapshot.val();
@@ -537,21 +395,14 @@
         }
         renderTable();
       }, (error) => {
-        console.error('Firebase read failed:', error);
-        tbody.innerHTML = `<tr><td colspan="3" class="empty-message">Error connecting to database.</td></tr>`;
-        connectionIndicator.innerHTML = `<span style="color: var(--danger);">⚠️ Offline</span>`;
+        console.error('❌ Firebase read failed:', error);
+        tbody.innerHTML = `<tr><td colspan="3" class="empty-message">Error: ${error.message}</td></tr>`;
       });
     }
 
     function updateVoterStatus(index, newStatus) {
       if (isReadOnly || !currentUser || index < 0 || index >= voters.length) return;
-      const oldStatus = voters[index].status;
-      if (oldStatus === newStatus) return;
-      
-      const updatedVoter = {
-        status: newStatus,
-        updatedAt: new Date().toISOString()
-      };
+      const updatedVoter = { status: newStatus, updatedAt: new Date().toISOString() };
       const updates = {};
       updates[`voters/${index}`] = updatedVoter;
       update(dbRef, updates);
@@ -564,17 +415,12 @@
         else if (v.status === 'polled') polled++;
         else if (v.status === 'ourpolled') ourPolled++;
       });
-      const ourTotal = our + ourPolled;
-      const totalPolledCount = polled + ourPolled;
-      const ourBalance = ourTotal - ourPolled;
-      const totalBalance = totalVoters - totalPolledCount;
-      return { our: ourTotal, polled: totalPolledCount, ourPolled, ourBalance, totalBalance, totalVoters };
+      return { our: our + ourPolled, polled: polled + ourPolled, ourPolled, ourBalance: our, totalBalance: totalVoters - (polled + ourPolled), totalVoters };
     }
 
     function renderStats() {
       const s = computeStats();
-      const total = s.totalVoters;
-      const percent = (value) => total === 0 ? '0.0%' : ((value / total) * 100).toFixed(1) + '%';
+      const percent = (v) => totalVoters ? ((v/totalVoters)*100).toFixed(1)+'%' : '0.0%';
       statsContainer.innerHTML = `
         <div class="stat-card"><div class="stat-value stat-our">${s.our}<span class="stat-percent">${percent(s.our)}</span></div><div class="stat-label">Our Votes</div></div>
         <div class="stat-card"><div class="stat-value stat-polled">${s.polled}<span class="stat-percent">${percent(s.polled)}</span></div><div class="stat-label">Total Polled</div></div>
@@ -591,11 +437,7 @@
       }
       if (searchTerm.trim()) {
         const term = searchTerm.trim().toLowerCase();
-        filtered = filtered.filter(v => {
-          const voterNo = (v.originalIndex + 1).toString();
-          const statusText = v.status || 'unmarked';
-          return voterNo.includes(term) || statusText.toLowerCase().includes(term);
-        });
+        filtered = filtered.filter(v => (v.originalIndex+1).toString().includes(term) || (v.status||'unmarked').toLowerCase().includes(term));
       }
       return filtered;
     }
@@ -630,21 +472,15 @@
         });
         tbody.innerHTML = html;
       }
-      if (selectedIndex !== -1 && selectedIndex < voters.length) {
-        selectedInfo.textContent = `Selected: Voter #${selectedIndex+1} (${voters[selectedIndex].status || 'unmarked'})`;
-      } else {
-        selectedInfo.textContent = 'No voter selected';
-      }
+      selectedInfo.textContent = (selectedIndex !== -1 && selectedIndex < voters.length) 
+        ? `Selected: Voter #${selectedIndex+1} (${voters[selectedIndex].status || 'unmarked'})` 
+        : 'No voter selected';
       renderStats();
     }
 
     function applyReadOnlyMode() {
       const canEdit = !isReadOnly && currentUser;
-      if (isReadOnly) {
-        readonlyIndicator.style.display = 'inline-flex';
-      } else {
-        readonlyIndicator.style.display = 'none';
-      }
+      readonlyIndicator.style.display = isReadOnly ? 'inline-flex' : 'none';
       markOurBtn.disabled = !canEdit;
       markPolledBtn.disabled = !canEdit;
       removeStatusBtn.disabled = !canEdit;
@@ -652,90 +488,60 @@
       backBtn.textContent = isReadOnly ? 'Back to Setup' : 'Change Booth';
     }
 
-    // ---------- Event Listeners ----------
     tbody.addEventListener('click', (e) => {
       if (isReadOnly || !currentUser) return;
       const row = e.target.closest('tr.voter-row');
       if (!row) return;
-      const idx = parseInt(row.dataset.index);
-      if (!isNaN(idx)) {
-        selectedIndex = idx;
-        renderTable();
-      }
+      selectedIndex = parseInt(row.dataset.index);
+      renderTable();
     });
-
     tbody.addEventListener('dblclick', (e) => {
       if (isReadOnly || !currentUser) return;
       const row = e.target.closest('tr.voter-row');
       if (!row) return;
       const idx = parseInt(row.dataset.index);
-      if (!isNaN(idx)) {
-        const current = voters[idx].status;
-        if (current === 'our') updateVoterStatus(idx, '');
-        else if (current === 'polled') updateVoterStatus(idx, 'ourpolled');
-        else if (current === 'ourpolled') updateVoterStatus(idx, 'polled');
-        else updateVoterStatus(idx, 'our');
-        selectedIndex = idx;
-      }
-    });
-
-    function applyToSelected(callback) {
-      if (isReadOnly || !currentUser) { alert('You must be logged in as an editor.'); return; }
-      if (selectedIndex === -1) { alert('Select a voter first.'); return; }
-      callback(selectedIndex);
-    }
-
-    markOurBtn.addEventListener('click', () => applyToSelected(idx => {
-      const status = voters[idx].status;
-      if (status === 'polled') updateVoterStatus(idx, 'ourpolled');
+      const current = voters[idx].status;
+      if (current === 'our') updateVoterStatus(idx, '');
+      else if (current === 'polled') updateVoterStatus(idx, 'ourpolled');
+      else if (current === 'ourpolled') updateVoterStatus(idx, 'polled');
       else updateVoterStatus(idx, 'our');
+      selectedIndex = idx;
+    });
+    function applyToSelected(cb) {
+      if (isReadOnly || !currentUser) { alert('Login required.'); return; }
+      if (selectedIndex === -1) { alert('Select a voter first.'); return; }
+      cb(selectedIndex);
+    }
+    markOurBtn.addEventListener('click', () => applyToSelected(idx => {
+      const s = voters[idx].status;
+      updateVoterStatus(idx, s === 'polled' ? 'ourpolled' : 'our');
     }));
-
     markPolledBtn.addEventListener('click', () => applyToSelected(idx => {
-      const status = voters[idx].status;
-      if (status === 'our') updateVoterStatus(idx, 'ourpolled');
-      else updateVoterStatus(idx, 'polled');
+      const s = voters[idx].status;
+      updateVoterStatus(idx, s === 'our' ? 'ourpolled' : 'polled');
     }));
-
     removeStatusBtn.addEventListener('click', () => applyToSelected(idx => updateVoterStatus(idx, '')));
-
-    filterBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        filterBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentFilter = btn.dataset.filter;
-        renderTable();
-      });
-    });
-
-    searchInput.addEventListener('input', (e) => {
-      searchTerm = e.target.value;
+    filterBtns.forEach(btn => btn.addEventListener('click', () => {
+      filterBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
       renderTable();
-    });
-
+    }));
+    searchInput.addEventListener('input', (e) => { searchTerm = e.target.value; renderTable(); });
     resetAllBtn.addEventListener('click', () => {
       if (isReadOnly || !currentUser) return;
       if (confirm('Reset all voter statuses?')) {
-        const resetVoters = Array.from({ length: totalVoters }, () => ({ status: '', updatedAt: null }));
-        set(ref(db, `booths/${boothId}/voters`), resetVoters);
+        set(ref(db, `booths/${boothId}/voters`), Array(totalVoters).fill({ status: '', updatedAt: null }));
       }
     });
-
     shareViewLinkBtn.addEventListener('click', () => {
-      const viewerUrl = `${window.location.origin}${window.location.pathname}?booth=${encodeURIComponent(boothId)}&mode=view`;
-      navigator.clipboard.writeText(viewerUrl).then(() => {
-        alert('📋 Viewer link copied! Anyone with this link can view (but not edit) the live data.');
-      }).catch(() => {
-        prompt('Copy this link manually:', viewerUrl);
-      });
+      const url = `${location.origin}${location.pathname}?booth=${encodeURIComponent(boothId)}&mode=view`;
+      navigator.clipboard.writeText(url).then(() => alert('📋 Viewer link copied!')).catch(() => prompt('Copy:', url));
     });
-
-    backBtn.addEventListener('click', () => {
-      window.location.href = 'index.html';
-    });
+    backBtn.addEventListener('click', () => location.href = 'index.html');
 
     applyReadOnlyMode();
-  }, 100);
+  })();
 </script>
 </body>
 </html>
