@@ -103,7 +103,7 @@
     .controls-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
     .search-wrapper {
       display: flex; align-items: center; background: rgba(15,23,42,0.6); border-radius: 40px;
-      padding: 4px 4px 4px 18px; border: 1px solid var(--card-border); flex: 1 1 260px;
+      padding: 4px 4px 4px 18px; border: 1px solid var(--card-border); flex: 1 1 50px;
     }
     .search-wrapper i { color: var(--muted); }
     .search-wrapper input {
@@ -128,9 +128,7 @@
     td { padding: 12px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
     tr.voter-row { cursor: pointer; transition: background 0.15s; }
     tr.voter-row:hover { background: rgba(255,255,255,0.06) !important; }
-    /* Highlight for checked rows (blue outline) */
     tr.voter-row.checked-row { outline: 2px solid var(--accent); outline-offset: -2px; background: rgba(56,189,248,0.15) !important; }
-    /* Single‑selected row (when no checkboxes are ticked) */
     tr.selected-row { outline: 2px solid var(--accent); outline-offset: -2px; background: rgba(56,189,248,0.15) !important; }
     .status-badge {
       display: inline-block; padding: 4px 12px; border-radius: 40px; font-size: 0.8rem;
@@ -159,7 +157,6 @@
     }
     .login-card .btn { width: 100%; justify-content: center; }
 
-    /* Checkbox styling */
     .voter-checkbox {
       width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer;
       transform: scale(1.2); margin: 0; vertical-align: middle;
@@ -185,9 +182,26 @@
       .stat-percent { font-size: 0.75rem; display: block; margin-left: 0; }
       .stat-label { font-size: 0.75rem; }
 
-      .controls-bar { flex-direction: column; align-items: stretch; }
-      .search-wrapper { width: 100%; }
-      .search-wrapper input { padding: 10px 12px; }
+      .controls-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+
+      /* 🔽 ULTRA-COMPACT SEARCH BAR */
+      .search-wrapper {
+        height: 36px;
+        padding: 2px 2px 2px 10px;
+        border-radius: 30px;
+        align-items: center;
+      }
+      .search-wrapper i {
+        font-size: 0.85rem;
+        margin-right: 4px;
+      }
+      .search-wrapper input {
+        height: 100%;
+        padding: 0 6px;
+        font-size: 0.9rem;
+        line-height: 1;
+      }
+
       .filter-group { justify-content: center; }
       .filter-btn { padding: 8px 12px; font-size: 0.85rem; flex: 1 0 auto; }
 
@@ -212,11 +226,21 @@
       .readonly-badge { margin-left: 0; margin-top: 8px; }
     }
 
+    /* Extra small devices (max-width: 480px) */
     @media (max-width: 480px) {
       .stats-grid { grid-template-columns: 1fr; }
       .booth-meta { flex-direction: column; gap: 6px; }
       .filter-btn { font-size: 0.8rem; padding: 6px 10px; }
       .btn { padding: 14px 10px; }
+
+      .search-wrapper {
+        height: 32px;
+        padding: 2px 2px 2px 8px;
+      }
+      .search-wrapper input {
+        font-size: 0.85rem;
+        padding: 0 4px;
+      }
     }
   </style>
 </head>
@@ -271,7 +295,7 @@
       </div>
     </div>
 
-    <!-- Action Buttons (Mark Our, Mark Polled, Clear Status, Deselect All) -->
+    <!-- Action Buttons -->
     <div class="voter-actions" style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
       <button class="btn btn-primary" id="markOurBtn"><i class="fas fa-user-check"></i> Mark Our</button>
       <button class="btn" id="markPolledBtn"><i class="fas fa-vote-yea"></i> Mark Polled</button>
@@ -322,7 +346,6 @@
     let totalVoters = totalParam ? parseInt(totalParam) : 0;
     let boothData = { assemblyName: assemblyParam || 'Unknown', boothNo: boothNoParam || '0', votersCount: totalVoters };
 
-    // DOM elements
     const displayAssembly = document.getElementById('displayAssembly');
     const displayBooth = document.getElementById('displayBooth');
     const displayTotal = document.getElementById('displayTotal');
@@ -350,8 +373,8 @@
     const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 
     let voters = []; 
-    let selectedIndices = new Set(); // Multi-select set
-    let singleSelectedIndex = -1;     // For row highlighting when no checkboxes are ticked
+    let selectedIndices = new Set();
+    let singleSelectedIndex = -1;
     let currentFilter = 'all'; 
     let searchTerm = '';
     let isReadOnly = (mode === 'view'); 
@@ -425,7 +448,6 @@
             set(dbRef, init); voters = init.voters;
           } else voters = [];
         }
-        // Clear selections when data reloads
         selectedIndices.clear();
         singleSelectedIndex = -1;
         renderTable();
@@ -510,7 +532,6 @@
           </tr>`;
         }).join('');
       }
-      // Update selected info text
       if (selectedIndices.size > 0) {
         selectedInfo.textContent = `${selectedIndices.size} voter(s) selected`;
       } else if (singleSelectedIndex !== -1) {
@@ -531,13 +552,9 @@
       backBtn.textContent = isReadOnly ? 'Back to Setup' : 'Change Booth';
     }
 
-    // Helper: get target indices for actions (checked ones or single selected)
     function getActionIndices() {
-      if (selectedIndices.size > 0) {
-        return Array.from(selectedIndices);
-      } else if (singleSelectedIndex !== -1) {
-        return [singleSelectedIndex];
-      }
+      if (selectedIndices.size > 0) return Array.from(selectedIndices);
+      if (singleSelectedIndex !== -1) return [singleSelectedIndex];
       return [];
     }
 
@@ -548,82 +565,60 @@
         return;
       }
       
-      // 🆕 Check if ALL voters in the current filtered view are selected
       const filtered = getFilteredVoters();
       const totalInView = filtered.length;
       const allSelected = (indices.length === totalInView && totalInView > 0);
       
       if (allSelected) {
         const confirmMsg = `⚠️ You are about to update ALL ${totalInView} voters in the current view.\n\nThis action cannot be undone. Continue?`;
-        if (!confirm(confirmMsg)) {
-          return; // User canceled
-        }
+        if (!confirm(confirmMsg)) return;
       }
       
       bulkUpdateStatus(indices, statusResolver);
-      // Clear checkboxes after action
       selectedIndices.clear();
       singleSelectedIndex = -1;
     }
 
-    // Event delegation for checkboxes
     tbody.addEventListener('change', (e) => {
       if (e.target.classList.contains('voter-checkbox')) {
         const idx = parseInt(e.target.dataset.index);
-        if (e.target.checked) {
-          selectedIndices.add(idx);
-        } else {
-          selectedIndices.delete(idx);
-        }
-        // Clear single selection when checkboxes are used
+        e.target.checked ? selectedIndices.add(idx) : selectedIndices.delete(idx);
         singleSelectedIndex = -1;
         renderTable();
       }
     });
 
-    // Select All checkbox
     selectAllCheckbox.addEventListener('change', (e) => {
       const filtered = getFilteredVoters();
-      if (e.target.checked) {
-        filtered.forEach(item => selectedIndices.add(item.originalIndex));
-      } else {
-        filtered.forEach(item => selectedIndices.delete(item.originalIndex));
-      }
+      if (e.target.checked) filtered.forEach(item => selectedIndices.add(item.originalIndex));
+      else filtered.forEach(item => selectedIndices.delete(item.originalIndex));
       singleSelectedIndex = -1;
       renderTable();
     });
 
-    // Deselect All button
     deselectAllBtn.addEventListener('click', () => {
       selectedIndices.clear();
       singleSelectedIndex = -1;
       renderTable();
     });
 
-    // Row click for single selection (only when checkboxes are not used)
     tbody.addEventListener('click', (e) => {
       if (e.target.type === 'checkbox') return;
       if (isReadOnly || !currentUser) return;
       const row = e.target.closest('tr.voter-row'); 
       if (!row) return;
       const idx = parseInt(row.dataset.index);
-      // If any checkboxes are ticked, ignore row click for single selection
-      if (selectedIndices.size > 0) {
-        return;
-      }
+      if (selectedIndices.size > 0) return;
       singleSelectedIndex = idx;
       renderTable();
     });
 
-    // Double-click toggle (works on single selected row if no checkboxes ticked)
     tbody.addEventListener('dblclick', (e) => {
       if (isReadOnly || !currentUser) return;
       const row = e.target.closest('tr.voter-row'); 
       if (!row) return;
       const idx = parseInt(row.dataset.index);
-      if (selectedIndices.size > 0) {
-        return;
-      }
+      if (selectedIndices.size > 0) return;
       const cur = voters[idx].status;
       if (cur === 'our') updateVoterStatus(idx, '');
       else if (cur === 'polled') updateVoterStatus(idx, 'ourpolled');
@@ -632,7 +627,6 @@
       singleSelectedIndex = idx;
     });
 
-    // Action buttons now use performAction
     markOurBtn.addEventListener('click', () => performAction(cur => cur === 'polled' ? 'ourpolled' : 'our'));
     markPolledBtn.addEventListener('click', () => performAction(cur => cur === 'our' ? 'ourpolled' : 'polled'));
     removeStatusBtn.addEventListener('click', () => performAction(() => ''));
