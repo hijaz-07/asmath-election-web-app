@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Booth Setup · Real‑Time Election</title>
+<style>
+:root{--bg1:#0f172a;--bg2:#1e293b;--card:rgba(255,255,255,.08);--card-border:rgba(255,255,255,.14);--text:#e2e8f0;--muted:#94a3b8;--accent:#38bdf8;--accent2:#8b5cf6;--danger:#fb7185;--success:#34d399;--shadow:0 20px 60px rgba(0,0,0,.35)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:radial-gradient(circle at top left,rgba(56,189,248,.22),transparent 30%),radial-gradient(circle at bottom right,rgba(139,92,246,.2),transparent 28%),linear-gradient(135deg,var(--bg1),var(--bg2));color:var(--text);display:grid;place-items:center;padding:24px}
+.container{width:100%;max-width:560px}.card{background:var(--card);border:1px solid var(--card-border);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-radius:28px;box-shadow:var(--shadow);overflow:hidden}.header{padding:28px 28px 18px;border-bottom:1px solid rgba(255,255,255,.08)}.header h1{font-size:clamp(1.5rem,3vw,2.2rem);line-height:1.15;margin-bottom:10px;background:linear-gradient(135deg,#fff,#cbd5e1);-webkit-background-clip:text;background-clip:text;color:transparent}.header p,.hint,.footer{color:var(--muted)}form{padding:28px;display:grid;gap:18px}.field{display:grid;gap:8px}label{font-size:.95rem;font-weight:600;color:#cbd5e1}input{width:100%;padding:14px 16px;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:rgba(15,23,42,.6);color:var(--text);outline:none;font-size:1rem;transition:.25s}input::placeholder{color:#64748b}input:focus{border-color:rgba(56,189,248,.9);box-shadow:0 0 0 4px rgba(56,189,248,.15);transform:translateY(-1px)}.error{font-size:.86rem;color:var(--danger);min-height:20px}.actions{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap}.btn{border:none;border-radius:16px;padding:13px 18px;font-weight:600;cursor:pointer;transition:.25s;font-size:.98rem;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1)}.btn-next{flex:1;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 12px 30px rgba(56,189,248,.22)}.btn-next:hover{transform:translateY(-2px);filter:brightness(1.05)}.btn-outline{background:transparent;border:1px solid var(--card-border)}.btn-outline:hover{background:rgba(255,255,255,.08)}.status{font-size:.9rem;color:var(--success);min-height:18px}.footer{padding:0 28px 28px;font-size:.84rem;display:flex;justify-content:space-between}@media (max-width:520px){.header,form,.footer{padding-left:18px;padding-right:18px}}
+</style>
+</head>
+<body>
+<div class="container"><div class="card">
+  <div class="header">
+    <h1>TAMIL NADU STATE ASSEMBLY ELECTION</h1>
+    <p>Enter booth details to start or join a live session.</p>
+  </div>
+  <form id="boothForm" novalidate>
+    <div class="field">
+      <label for="assemblyName">Assembly Name</label>
+      <input id="assemblyName" type="text" placeholder="e.g., Kolathur Assembly" autocomplete="off" />
+      <div class="hint">Official assembly constituency name</div>
+      <div class="error" id="assemblyError"></div>
+    </div>
+    <div class="field">
+      <label for="boothNo">Booth No.</label>
+      <input id="boothNo" type="number" placeholder="Booth number" min="1" step="1" />
+      <div class="hint">Positive integer only</div>
+      <div class="error" id="boothError"></div>
+    </div>
+    <div class="field">
+      <label for="votersCount">Total No. of Voters</label>
+      <input id="votersCount" type="number" placeholder="Total voters" min="1" step="1" />
+      <div class="hint">Number of registered voters in this booth</div>
+      <div class="error" id="votersError"></div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-outline" type="button" id="resetBtn">Reset</button>
+      <button class="btn btn-next" type="submit">Continue to Voter List →</button>
+    </div>
+    <div class="status" id="statusMsg"></div>
+  </form>
+  <div class="footer"><span>🔒 Data stored in Firebase</span><span>v3.0 · Real‑Time</span></div>
+</div></div>
+<script>
+(()=>{
+  const $=id=>document.getElementById(id),
+        f=$("boothForm"),
+        a=$("assemblyName"),
+        b=$("boothNo"),
+        v=$("votersCount"),
+        ae=$("assemblyError"),
+        be=$("boothError"),
+        ve=$("votersError"),
+        s=$("statusMsg"),
+        clear=()=>[ae,be,ve,s].forEach(x=>x.textContent=""),
+        err=(el,m)=>el.textContent=m;
+
+  [a,b,v].forEach(i=>i.oninput=()=>clear());
+  $("resetBtn").onclick=()=>{f.reset();clear();};
+
+  f.onsubmit=e=>{
+    e.preventDefault();
+    clear();
+    const assembly=a.value.trim(),
+          booth=+b.value.trim(),
+          count=+v.value.trim();
+    let ok=true;
+
+    if(!assembly) err(ae,"Assembly name is required."),ok=false;
+    else if(assembly.length<3) err(ae,"Enter a valid assembly name (min 3 characters)."),ok=false;
+
+    if(!Number.isInteger(booth)||booth<=0) err(be,"Booth number must be a positive whole number."),ok=false;
+
+    if(!Number.isInteger(count)||count<=0) err(ve,"Voter count must be a positive whole number."),ok=false;
+    else if(count>5000&&!confirm(`You entered ${count} voters. Is that correct?`)) ok=false;
+
+    if(!ok) return;
+
+    // Create a booth ID: assemblyName_boothNo (spaces replaced with -)
+    const boothId = `${assembly.replace(/\s+/g, '-')}_${booth}`;
+    // Redirect to main.html in edit mode
+    window.location.href = `main.html?booth=${encodeURIComponent(boothId)}&mode=edit&total=${count}&assembly=${encodeURIComponent(assembly)}&boothNo=${booth}`;
+  };
+})();
+</script>
+</body>
+</html>

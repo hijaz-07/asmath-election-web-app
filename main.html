@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Voter List · Real‑Time Sync</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDlC7XS3V0TaKHY1O-_oN9ml0dNPl_OWic",
+      authDomain: "asmath-election-web-app-a65b6.firebaseapp.com",
+      projectId: "asmath-election-web-app-a65b6",
+      storageBucket: "asmath-election-web-app-a65b6.firebasestorage.app",
+      messagingSenderId: "362052846715",
+      appId: "1:362052846715:web:3092bedee2f598599c0ede"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    window.db = db;
+    window.firebaseRef = ref;
+    window.firebaseSet = set;
+    window.firebaseUpdate = update;
+    window.firebaseOnValue = onValue;
+  </script>
+  <style>
+    :root {
+      --bg1: #0f172a;
+      --bg2: #1e293b;
+      --card: rgba(255, 255, 255, 0.08);
+      --card-border: rgba(255, 255, 255, 0.14);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent2: #8b5cf6;
+      --danger: #fb7185;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      --our-highlight: #2563eb;
+      --polled-highlight: #dc2626;
+      --ourpolled-highlight: #16a34a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: radial-gradient(circle at top left, rgba(56,189,248,0.22), transparent 30%),
+                  radial-gradient(circle at bottom right, rgba(139,92,246,0.2), transparent 28%),
+                  linear-gradient(135deg, var(--bg1), var(--bg2));
+      color: var(--text);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .app-container { width: 100%; max-width: 1400px; }
+    .glass-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 24px 28px;
+      margin-bottom: 24px;
+    }
+    .booth-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .booth-info h1 {
+      font-size: 1.8rem;
+      background: linear-gradient(135deg, #fff, #cbd5e1);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 6px;
+    }
+    .booth-meta {
+      display: flex;
+      gap: 24px;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+    .booth-meta i { margin-right: 6px; color: var(--accent); }
+    .action-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn {
+      border: none;
+      border-radius: 16px;
+      padding: 12px 20px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 0.95rem;
+      background: rgba(255,255,255,0.05);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.1);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      backdrop-filter: blur(8px);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 8px 20px rgba(56,189,248,0.2);
+      border: none;
+    }
+    .btn-outline { background: transparent; border: 1px solid var(--card-border); }
+    .btn-outline:hover { background: rgba(255,255,255,0.08); }
+    .btn-primary:hover { transform: translateY(-2px); filter: brightness(1.05); }
+    .btn-danger { border-color: var(--danger); color: var(--danger); }
+    .btn-danger:hover { background: rgba(251,113,133,0.15); }
+    .btn:disabled { opacity: 0.5; pointer-events: none; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px,1fr));
+      gap: 16px;
+      margin: 20px 0 10px;
+    }
+    .stat-card {
+      background: rgba(15,23,42,0.6);
+      border-radius: 20px;
+      padding: 16px 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      text-align: center;
+    }
+    .stat-value { font-size: 2.2rem; font-weight: 700; line-height: 1.2; }
+    .stat-percent { font-size: 0.9rem; font-weight: 400; margin-left: 6px; opacity: 0.8; }
+    .stat-label {
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+    .stat-our { color: var(--success); }
+    .stat-polled { color: var(--danger); }
+    .stat-ourpolled { color: var(--success); }
+    .stat-balance { color: var(--accent); }
+    .controls-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .search-wrapper {
+      display: flex;
+      align-items: center;
+      background: rgba(15,23,42,0.6);
+      border-radius: 40px;
+      padding: 4px 4px 4px 18px;
+      border: 1px solid var(--card-border);
+      flex: 1 1 260px;
+    }
+    .search-wrapper i { color: var(--muted); }
+    .search-wrapper input {
+      background: transparent;
+      border: none;
+      padding: 12px 12px;
+      color: var(--text);
+      font-size: 1rem;
+      width: 100%;
+      outline: none;
+    }
+    .filter-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter-btn {
+      padding: 8px 16px;
+      border-radius: 30px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--card-border);
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .filter-btn.active { background: var(--accent); color: #0f172a; border-color: var(--accent); }
+    .voter-table-container {
+      max-height: 600px;
+      overflow-y: auto;
+      border-radius: 20px;
+      background: rgba(0,0,0,0.2);
+      margin-top: 8px;
+      scroll-behavior: smooth;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    th {
+      position: sticky;
+      top: 0;
+      background: #1e293b;
+      padding: 16px 12px;
+      text-align: left;
+      color: #cbd5e1;
+      font-weight: 600;
+      backdrop-filter: blur(10px);
+      z-index: 2;
+    }
+    td { padding: 12px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    tr.voter-row { cursor: pointer; transition: background 0.15s; }
+    tr.voter-row:hover { background: rgba(255,255,255,0.06) !important; }
+    tr.selected-row {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+      background: rgba(56,189,248,0.15) !important;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 40px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .status-our { background: rgba(37,99,235,0.3); color: #bfdbfe; }
+    .status-polled { background: rgba(220,38,38,0.3); color: #fecaca; }
+    .status-ourpolled { background: rgba(22,163,74,0.3); color: #bbf7d0; }
+    .status-none { color: var(--muted); }
+    td.sl-col { font-weight: 600; transition: background 0.2s; }
+    .sl-our { background-color: var(--our-highlight) !important; color: white; }
+    .sl-polled { background-color: var(--polled-highlight) !important; color: white; }
+    .sl-ourpolled { background-color: var(--ourpolled-highlight) !important; color: white; }
+    .empty-message { text-align: center; padding: 48px; color: var(--muted); }
+    .footer-note {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .readonly-badge {
+      background: var(--warning);
+      color: #0f172a;
+      padding: 4px 12px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 12px;
+    }
+    .connection-status {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #4ade80;
+      margin-right: 8px;
+      box-shadow: 0 0 10px #4ade80;
+    }
+    @media (max-width: 700px) {
+      .glass-card { padding: 18px; }
+      .booth-header { flex-direction: column; align-items: start; }
+      .stats-grid { grid-template-columns: repeat(2,1fr); }
+    }
+  </style>
+</head>
+<body>
+<div class="app-container">
+  <div class="glass-card">
+    <div class="booth-header">
+      <div class="booth-info">
+        <h1 id="displayAssembly">Tamil Nadu Assembly</h1>
+        <div class="booth-meta">
+          <span><i class="fas fa-map-pin"></i> Booth: <strong id="displayBooth">—</strong></span>
+          <span><i class="fas fa-users"></i> Total Voters: <strong id="displayTotal">0</strong></span>
+          <span id="readonlyIndicator" class="readonly-badge" style="display:none;"><i class="fas fa-lock"></i> Read‑Only</span>
+          <span id="connectionIndicator"><span class="connection-status"></span> Live</span>
+        </div>
+      </div>
+      <div class="action-buttons">
+        <button class="btn btn-outline" id="backToBoothBtn"><i class="fas fa-arrow-left"></i> Change Booth</button>
+        <button class="btn btn-primary" id="shareViewLinkBtn"><i class="fas fa-share-alt"></i> Copy Viewer Link</button>
+        <button class="btn btn-outline btn-danger" id="resetAllBtn"><i class="fas fa-undo-alt"></i> Reset List</button>
+      </div>
+    </div>
+    <div class="stats-grid" id="statsContainer"></div>
+  </div>
+
+  <div class="glass-card">
+    <div class="controls-bar">
+      <div class="search-wrapper">
+        <i class="fas fa-search"></i>
+        <input type="text" id="searchInput" placeholder="Search voter # or status..." autocomplete="off">
+      </div>
+      <div class="filter-group">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="our">Our</button>
+        <button class="filter-btn" data-filter="polled">Polled</button>
+        <button class="filter-btn" data-filter="ourpolled">Our Polled</button>
+        <button class="filter-btn" data-filter="none">Unmarked</button>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+      <button class="btn btn-primary" id="markOurBtn"><i class="fas fa-user-check"></i> Mark Our</button>
+      <button class="btn" id="markPolledBtn"><i class="fas fa-vote-yea"></i> Mark Polled</button>
+      <button class="btn btn-outline" id="removeStatusBtn"><i class="fas fa-times"></i> Clear Status</button>
+      <span style="margin-left: auto; color: var(--muted);" id="selectedInfo">No voter selected</span>
+    </div>
+
+    <div class="voter-table-container" id="tableWrapper">
+      <table>
+        <thead>
+          <tr><th>Sl. No</th><th>Status</th><th>Last Updated</th></tr>
+        </thead>
+        <tbody id="voterTableBody">
+          <tr><td colspan="3" class="empty-message">Connecting to Firebase...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer-note">
+      <span><i class="fas fa-cloud-upload-alt"></i> Real‑time sync enabled</span>
+      <span>Click row to select • Double-click to toggle 'Our'</span>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  setTimeout(async () => {
+    const db = window.db;
+    const ref = window.firebaseRef;
+    const set = window.firebaseSet;
+    const update = window.firebaseUpdate;
+    const onValue = window.firebaseOnValue;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const boothId = urlParams.get('booth');
+    const mode = urlParams.get('mode') || 'edit';
+    const totalParam = urlParams.get('total');
+    const assemblyParam = urlParams.get('assembly');
+    const boothNoParam = urlParams.get('boothNo');
+
+    let totalVoters = totalParam ? parseInt(totalParam) : 0;
+    let boothData = {
+      assemblyName: assemblyParam || 'Unknown',
+      boothNo: boothNoParam || '0',
+      votersCount: totalVoters
+    };
+
+    const displayAssembly = document.getElementById('displayAssembly');
+    const displayBooth = document.getElementById('displayBooth');
+    const displayTotal = document.getElementById('displayTotal');
+    const statsContainer = document.getElementById('statsContainer');
+    const tbody = document.getElementById('voterTableBody');
+    const searchInput = document.getElementById('searchInput');
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const selectedInfo = document.getElementById('selectedInfo');
+    const readonlyIndicator = document.getElementById('readonlyIndicator');
+    const connectionIndicator = document.getElementById('connectionIndicator');
+
+    const backBtn = document.getElementById('backToBoothBtn');
+    const shareViewLinkBtn = document.getElementById('shareViewLinkBtn');
+    const resetAllBtn = document.getElementById('resetAllBtn');
+    const markOurBtn = document.getElementById('markOurBtn');
+    const markPolledBtn = document.getElementById('markPolledBtn');
+    const removeStatusBtn = document.getElementById('removeStatusBtn');
+
+    let voters = [];
+    let selectedIndex = -1;
+    let currentFilter = 'all';
+    let searchTerm = '';
+    let isReadOnly = (mode === 'view');
+    let dbRef = null;
+
+    displayAssembly.textContent = boothData.assemblyName;
+    displayBooth.textContent = boothData.boothNo;
+    displayTotal.textContent = totalVoters;
+
+    if (!boothId) {
+      alert('No booth specified. Redirecting to setup.');
+      window.location.href = 'index.html';
+      throw new Error('No booth ID');
+    }
+
+    dbRef = ref(db, `booths/${boothId}`);
+
+    onValue(dbRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        if (data.assemblyName) boothData.assemblyName = data.assemblyName;
+        if (data.boothNo) boothData.boothNo = data.boothNo;
+        if (data.votersCount) totalVoters = data.votersCount;
+        displayAssembly.textContent = boothData.assemblyName;
+        displayBooth.textContent = boothData.boothNo;
+        displayTotal.textContent = totalVoters;
+
+        if (data.voters) {
+          voters = data.voters;
+          if (voters.length !== totalVoters) {
+            const newVoters = Array.from({ length: totalVoters }, (_, i) => {
+              return voters[i] || { status: '', updatedAt: null };
+            });
+            voters = newVoters;
+            if (!isReadOnly) {
+              set(ref(db, `booths/${boothId}/voters`), voters);
+            }
+          }
+        } else {
+          voters = Array.from({ length: totalVoters }, () => ({ status: '', updatedAt: null }));
+          if (!isReadOnly) {
+            set(ref(db, `booths/${boothId}/voters`), voters);
+          }
+        }
+      } else {
+        if (!isReadOnly) {
+          const initialData = {
+            ...boothData,
+            voters: Array.from({ length: totalVoters }, () => ({ status: '', updatedAt: null }))
+          };
+          set(dbRef, initialData);
+          voters = initialData.voters;
+        } else {
+          voters = [];
+        }
+      }
+      renderTable();
+      applyReadOnlyMode();
+    }, (error) => {
+      console.error('Firebase read failed:', error);
+      tbody.innerHTML = `<tr><td colspan="3" class="empty-message">Error connecting to database. Check console.</td></tr>`;
+      connectionIndicator.innerHTML = `<span style="color: var(--danger);">⚠️ Offline</span>`;
+    });
+
+    const connectedRef = ref(db, '.info/connected');
+    onValue(connectedRef, (snap) => {
+      if (snap.val() === true) {
+        connectionIndicator.innerHTML = `<span class="connection-status"></span> Live`;
+      } else {
+        connectionIndicator.innerHTML = `<span style="color: var(--danger);">⚠️ Offline</span>`;
+      }
+    });
+
+    function updateVoterStatus(index, newStatus) {
+      if (isReadOnly || index < 0 || index >= voters.length) return;
+      const oldStatus = voters[index].status;
+      if (oldStatus === newStatus) return;
+      
+      const updatedVoter = {
+        status: newStatus,
+        updatedAt: new Date().toISOString()
+      };
+      const updates = {};
+      updates[`voters/${index}`] = updatedVoter;
+      update(dbRef, updates);
+    }
+
+    function computeStats() {
+      let our = 0, polled = 0, ourPolled = 0;
+      voters.forEach(v => {
+        if (v.status === 'our') our++;
+        else if (v.status === 'polled') polled++;
+        else if (v.status === 'ourpolled') ourPolled++;
+      });
+      const ourTotal = our + ourPolled;
+      const totalPolledCount = polled + ourPolled;
+      const ourBalance = ourTotal - ourPolled;
+      const totalBalance = totalVoters - totalPolledCount;
+      return { our: ourTotal, polled: totalPolledCount, ourPolled, ourBalance, totalBalance, totalVoters };
+    }
+
+    function renderStats() {
+      const s = computeStats();
+      const total = s.totalVoters;
+      const percent = (value) => total === 0 ? '0.0%' : ((value / total) * 100).toFixed(1) + '%';
+      statsContainer.innerHTML = `
+        <div class="stat-card"><div class="stat-value stat-our">${s.our}<span class="stat-percent">${percent(s.our)}</span></div><div class="stat-label">Our Votes</div></div>
+        <div class="stat-card"><div class="stat-value stat-polled">${s.polled}<span class="stat-percent">${percent(s.polled)}</span></div><div class="stat-label">Total Polled</div></div>
+        <div class="stat-card"><div class="stat-value stat-ourpolled">${s.ourPolled}<span class="stat-percent">${percent(s.ourPolled)}</span></div><div class="stat-label">Our Polled</div></div>
+        <div class="stat-card"><div class="stat-value stat-balance">${s.ourBalance}<span class="stat-percent">${percent(s.ourBalance)}</span></div><div class="stat-label">Our Balance</div></div>
+        <div class="stat-card"><div class="stat-value">${s.totalBalance}<span class="stat-percent">${percent(s.totalBalance)}</span></div><div class="stat-label">Total Balance</div></div>
+      `;
+    }
+
+    function getFilteredVoters() {
+      let filtered = voters.map((v, idx) => ({ ...v, originalIndex: idx }));
+      if (currentFilter !== 'all') {
+        filtered = filtered.filter(v => currentFilter === 'none' ? v.status === '' : v.status === currentFilter);
+      }
+      if (searchTerm.trim()) {
+        const term = searchTerm.trim().toLowerCase();
+        filtered = filtered.filter(v => {
+          const voterNo = (v.originalIndex + 1).toString();
+          const statusText = v.status || 'unmarked';
+          return voterNo.includes(term) || statusText.toLowerCase().includes(term);
+        });
+      }
+      return filtered;
+    }
+
+    function renderTable() {
+      if (!voters.length) {
+        tbody.innerHTML = `<tr><td colspan="3" class="empty-message">Waiting for data...</td></tr>`;
+        return;
+      }
+      const filtered = getFilteredVoters();
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="empty-message"><i class="fas fa-user-slash"></i> No voters match criteria</td></tr>`;
+      } else {
+        let html = '';
+        filtered.forEach(item => {
+          const idx = item.originalIndex;
+          const status = item.status;
+          const updated = item.updatedAt ? new Date(item.updatedAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—';
+          const statusClass = status ? `status-${status}` : 'status-none';
+          const statusDisplay = status ? status.toUpperCase() : '—';
+          const selectedClass = (selectedIndex === idx && !isReadOnly) ? 'selected-row' : '';
+          let slClass = 'sl-col';
+          if (status === 'our') slClass += ' sl-our';
+          else if (status === 'polled') slClass += ' sl-polled';
+          else if (status === 'ourpolled') slClass += ' sl-ourpolled';
+          html += `<tr class="voter-row ${selectedClass}" data-index="${idx}">
+            <td class="${slClass}">${idx+1}</td>
+            <td><span class="status-badge ${statusClass}">${statusDisplay}</span></td>
+            <td>${updated}</td>
+          </tr>`;
+        });
+        tbody.innerHTML = html;
+      }
+      if (selectedIndex !== -1 && selectedIndex < voters.length) {
+        selectedInfo.textContent = `Selected: Voter #${selectedIndex+1} (${voters[selectedIndex].status || 'unmarked'})`;
+      } else {
+        selectedInfo.textContent = 'No voter selected';
+      }
+      renderStats();
+    }
+
+    function applyReadOnlyMode() {
+      if (isReadOnly) {
+        readonlyIndicator.style.display = 'inline-flex';
+        markOurBtn.disabled = true;
+        markPolledBtn.disabled = true;
+        removeStatusBtn.disabled = true;
+        resetAllBtn.disabled = true;
+        backBtn.textContent = 'Back to Setup';
+      } else {
+        readonlyIndicator.style.display = 'none';
+        markOurBtn.disabled = false;
+        markPolledBtn.disabled = false;
+        removeStatusBtn.disabled = false;
+        resetAllBtn.disabled = false;
+        backBtn.textContent = 'Change Booth';
+      }
+    }
+
+    tbody.addEventListener('click', (e) => {
+      if (isReadOnly) return;
+      const row = e.target.closest('tr.voter-row');
+      if (!row) return;
+      const idx = parseInt(row.dataset.index);
+      if (!isNaN(idx)) {
+        selectedIndex = idx;
+        renderTable();
+      }
+    });
+
+    tbody.addEventListener('dblclick', (e) => {
+      if (isReadOnly) return;
+      const row = e.target.closest('tr.voter-row');
+      if (!row) return;
+      const idx = parseInt(row.dataset.index);
+      if (!isNaN(idx)) {
+        const current = voters[idx].status;
+        if (current === 'our') updateVoterStatus(idx, '');
+        else if (current === 'polled') updateVoterStatus(idx, 'ourpolled');
+        else if (current === 'ourpolled') updateVoterStatus(idx, 'polled');
+        else updateVoterStatus(idx, 'our');
+        selectedIndex = idx;
+      }
+    });
+
+    function applyToSelected(callback) {
+      if (isReadOnly) { alert('Read‑only mode: cannot modify.'); return; }
+      if (selectedIndex === -1) { alert('Select a voter first.'); return; }
+      callback(selectedIndex);
+    }
+
+    markOurBtn.addEventListener('click', () => applyToSelected(idx => {
+      const status = voters[idx].status;
+      if (status === 'polled') updateVoterStatus(idx, 'ourpolled');
+      else updateVoterStatus(idx, 'our');
+    }));
+
+    markPolledBtn.addEventListener('click', () => applyToSelected(idx => {
+      const status = voters[idx].status;
+      if (status === 'our') updateVoterStatus(idx, 'ourpolled');
+      else updateVoterStatus(idx, 'polled');
+    }));
+
+    removeStatusBtn.addEventListener('click', () => applyToSelected(idx => updateVoterStatus(idx, '')));
+
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        renderTable();
+      });
+    });
+
+    searchInput.addEventListener('input', (e) => {
+      searchTerm = e.target.value;
+      renderTable();
+    });
+
+    resetAllBtn.addEventListener('click', () => {
+      if (isReadOnly) return;
+      if (confirm('Reset all voter statuses? This will clear all marks for everyone.')) {
+        const resetVoters = Array.from({ length: totalVoters }, () => ({ status: '', updatedAt: null }));
+        set(ref(db, `booths/${boothId}/voters`), resetVoters);
+      }
+    });
+
+    shareViewLinkBtn.addEventListener('click', () => {
+      const viewerUrl = `${window.location.origin}${window.location.pathname}?booth=${encodeURIComponent(boothId)}&mode=view`;
+      navigator.clipboard.writeText(viewerUrl).then(() => {
+        alert('📋 Viewer link copied!\n\nShare this link with your team. They will see live updates but cannot edit.');
+      }).catch(() => {
+        prompt('Copy this link manually:', viewerUrl);
+      });
+    });
+
+    backBtn.addEventListener('click', () => {
+      window.location.href = 'index.html';
+    });
+
+    applyReadOnlyMode();
+  }, 100);
+</script>
+</body>
+</html>
