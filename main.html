@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <title>Live Voter List · Real‑Time Sync</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <!-- Firebase SDK -->
@@ -37,7 +37,7 @@
     console.log('✅ Firebase initialized');
   </script>
   <style>
-    /* All styles unchanged */
+    /* ========== GLOBAL (Laptop First) ========== */
     :root {
       --bg1: #0f172a; --bg2: #1e293b; --card: rgba(255, 255, 255, 0.08); --card-border: rgba(255, 255, 255, 0.14);
       --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --accent2: #8b5cf6; --danger: #fb7185; --success: #34d399;
@@ -143,10 +143,65 @@
       background: rgba(15,23,42,0.6); color: var(--text); font-size: 1rem; margin-bottom: 12px;
     }
     .login-card .btn { width: 100%; justify-content: center; }
-    @media (max-width: 700px) {
-      .glass-card { padding: 18px; }
-      .booth-header { flex-direction: column; align-items: start; }
-      .stats-grid { grid-template-columns: repeat(2,1fr); }
+
+    /* ========== MOBILE DEDICATED UI (max-width: 768px) ========== */
+    @media (max-width: 768px) {
+      body { padding: 12px; }
+      .app-container { max-width: 100%; }
+      .glass-card { padding: 18px 16px; border-radius: 24px; margin-bottom: 16px; }
+
+      /* Booth Header */
+      .booth-header { flex-direction: column; align-items: stretch; gap: 16px; }
+      .booth-info h1 { font-size: 1.5rem; }
+      .booth-meta { flex-wrap: wrap; gap: 12px; font-size: 0.9rem; }
+      .action-buttons { flex-direction: column; width: 100%; }
+      .action-buttons .btn { width: 100%; justify-content: center; padding: 16px 12px; font-size: 1rem; }
+
+      /* Stats Grid */
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .stat-card { padding: 12px 8px; }
+      .stat-value { font-size: 1.6rem; }
+      .stat-percent { font-size: 0.75rem; display: block; margin-left: 0; }
+      .stat-label { font-size: 0.75rem; }
+
+      /* Search and Filter */
+      .controls-bar { flex-direction: column; align-items: stretch; }
+      .search-wrapper { width: 100%; }
+      .filter-group { justify-content: center; }
+      .filter-btn { padding: 8px 12px; font-size: 0.85rem; flex: 1 0 auto; }
+
+      /* Voter Action Buttons */
+      .voter-actions { flex-wrap: wrap; }
+      .voter-actions .btn { flex: 1 1 calc(50% - 8px); padding: 14px 8px; font-size: 0.9rem; }
+      #selectedInfo { width: 100%; text-align: center; margin-left: 0 !important; margin-top: 8px; }
+
+      /* Table */
+      .voter-table-container { max-height: 450px; }
+      table { font-size: 0.85rem; }
+      th, td { padding: 12px 8px; }
+      /* Hide "Last Updated" column on very small screens (optional) */
+      @media (max-width: 480px) {
+        th:nth-child(3), td:nth-child(3) { display: none; }
+      }
+
+      /* Login Card */
+      .login-card { max-width: 100%; margin: 0; }
+      .login-card h2 { font-size: 1.3rem; }
+      .login-card input { padding: 16px; font-size: 16px; }
+
+      /* Footer */
+      .footer-note { flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+
+      /* Readonly badge adjust */
+      .readonly-badge { margin-left: 0; margin-top: 8px; }
+    }
+
+    /* Extra small devices (max-width: 480px) */
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .booth-meta { flex-direction: column; gap: 6px; }
+      .filter-btn { font-size: 0.8rem; padding: 6px 10px; }
+      .btn { padding: 14px 10px; }
     }
   </style>
 </head>
@@ -166,7 +221,7 @@
       </div>
       <div class="action-buttons">
         <button class="btn btn-outline" id="backToBoothBtn"><i class="fas fa-arrow-left"></i> Change Booth</button>
-        <button class="btn btn-primary" id="shareViewLinkBtn"><i class="fas fa-share-alt"></i> Copy Viewer Link</button>
+        <button class="btn btn-primary" id="shareViewLinkBtn"><i class="fas fa-share-alt"></i> Share Snapshot</button>
         <button class="btn btn-outline btn-danger" id="resetAllBtn"><i class="fas fa-undo-alt"></i> Reset List</button>
         <button class="btn btn-outline" id="logoutBtn" style="display:none;"><i class="fas fa-sign-out-alt"></i> Logout</button>
       </div>
@@ -200,7 +255,7 @@
       </div>
     </div>
 
-    <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+    <div class="voter-actions" style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
       <button class="btn btn-primary" id="markOurBtn"><i class="fas fa-user-check"></i> Mark Our</button>
       <button class="btn" id="markPolledBtn"><i class="fas fa-vote-yea"></i> Mark Polled</button>
       <button class="btn btn-outline" id="removeStatusBtn"><i class="fas fa-times"></i> Clear Status</button>
@@ -223,37 +278,22 @@
 
 <script>
   (function initWhenReady() {
-    if (!window.db || !window.auth) {
-      setTimeout(initWhenReady, 50);
-      return;
-    }
-    console.log('🚀 Starting app with Firebase ready');
+    if (!window.db || !window.auth) { setTimeout(initWhenReady, 50); return; }
+    console.log('🚀 Starting app');
     
-    const db = window.db;
-    const auth = window.auth;
-    const ref = window.firebaseRef;
-    const set = window.firebaseSet;
-    const update = window.firebaseUpdate;
-    const onValue = window.firebaseOnValue;
+    const db = window.db; const auth = window.auth;
+    const ref = window.firebaseRef; const set = window.firebaseSet;
+    const update = window.firebaseUpdate; const onValue = window.firebaseOnValue;
     const onAuthStateChanged = window.firebaseOnAuthStateChanged;
-    const signIn = window.firebaseSignIn;
-    const signOutUser = window.firebaseSignOut;
+    const signIn = window.firebaseSignIn; const signOutUser = window.firebaseSignOut;
 
     const urlParams = new URLSearchParams(window.location.search);
-    const boothId = urlParams.get('booth');
-    const mode = urlParams.get('mode') || 'edit';
-    const totalParam = urlParams.get('total');
-    const assemblyParam = urlParams.get('assembly');
+    const boothId = urlParams.get('booth'); const mode = urlParams.get('mode') || 'edit';
+    const totalParam = urlParams.get('total'); const assemblyParam = urlParams.get('assembly');
     const boothNoParam = urlParams.get('boothNo');
 
-    console.log('📋 URL params:', { boothId, mode, totalParam, assemblyParam, boothNoParam });
-
     let totalVoters = totalParam ? parseInt(totalParam) : 0;
-    let boothData = {
-      assemblyName: assemblyParam || 'Unknown',
-      boothNo: boothNoParam || '0',
-      votersCount: totalVoters
-    };
+    let boothData = { assemblyName: assemblyParam || 'Unknown', boothNo: boothNoParam || '0', votersCount: totalVoters };
 
     // DOM elements
     const displayAssembly = document.getElementById('displayAssembly');
@@ -280,77 +320,42 @@
     const markPolledBtn = document.getElementById('markPolledBtn');
     const removeStatusBtn = document.getElementById('removeStatusBtn');
 
-    let voters = [];
-    let selectedIndex = -1;
-    let currentFilter = 'all';
-    let searchTerm = '';
-    let isReadOnly = (mode === 'view');
-    let currentUser = null;
-    let dbRef = null;
-    let dataListenerUnsubscribe = null;
+    let voters = []; let selectedIndex = -1; let currentFilter = 'all'; let searchTerm = '';
+    let isReadOnly = (mode === 'view'); let currentUser = null; let dbRef = null; let dataListenerUnsubscribe = null;
 
     displayAssembly.textContent = boothData.assemblyName;
     displayBooth.textContent = boothData.boothNo;
     displayTotal.textContent = totalVoters;
 
-    if (!boothId) {
-      alert('No booth specified. Redirecting to setup.');
-      window.location.href = 'index.html';
-      return;
-    }
-
+    if (!boothId) { alert('No booth specified.'); window.location.href = 'index.html'; return; }
     dbRef = ref(db, `booths/${boothId}`);
-    console.log('🔗 Database reference:', `booths/${boothId}`);
 
     onAuthStateChanged(auth, (user) => {
-      console.log('👤 Auth state changed:', user ? `User: ${user.email}` : 'No user');
       currentUser = user;
       const needsAuth = !isReadOnly && !user;
-      
       if (needsAuth) {
-        loginCard.style.display = 'block';
-        voterCard.style.display = 'none';
-        logoutBtn.style.display = 'none';
+        loginCard.style.display = 'block'; voterCard.style.display = 'none'; logoutBtn.style.display = 'none';
       } else {
-        loginCard.style.display = 'none';
-        voterCard.style.display = 'block';
+        loginCard.style.display = 'none'; voterCard.style.display = 'block';
         logoutBtn.style.display = (user && !isReadOnly) ? 'inline-flex' : 'none';
-        
-        if (!dataListenerUnsubscribe) {
-          setupDataListener();
-        }
+        if (!dataListenerUnsubscribe) setupDataListener();
       }
       applyReadOnlyMode();
     });
 
     loginBtn.addEventListener('click', async () => {
-      const email = loginEmail.value.trim();
-      const password = loginPassword.value;
-      if (!email || !password) {
-        loginError.textContent = 'Please enter both email and password.';
-        return;
-      }
+      const email = loginEmail.value.trim(); const password = loginPassword.value;
+      if (!email || !password) { loginError.textContent = 'Please enter both email and password.'; return; }
       try {
         await signIn(auth, email, password);
-        loginError.textContent = '';
-        loginEmail.value = '';
-        loginPassword.value = '';
-      } catch (error) {
-        loginError.textContent = error.message;
-      }
+        loginError.textContent = ''; loginEmail.value = ''; loginPassword.value = '';
+      } catch (error) { loginError.textContent = error.message; }
     });
-
-    logoutBtn.addEventListener('click', async () => {
-      await signOutUser(auth);
-    });
+    logoutBtn.addEventListener('click', async () => { await signOutUser(auth); });
 
     const connectedRef = ref(db, '.info/connected');
     onValue(connectedRef, (snap) => {
-      if (snap.val() === true) {
-        connectionIndicator.innerHTML = `<span class="connection-status"></span> Live`;
-      } else {
-        connectionIndicator.innerHTML = `<span style="color: var(--danger);">⚠️ Offline</span>`;
-      }
+      connectionIndicator.innerHTML = snap.val() ? `<span class="connection-status"></span> Live` : `<span style="color: var(--danger);">⚠️ Offline</span>`;
     });
 
     function setupDataListener() {
@@ -363,147 +368,96 @@
           displayAssembly.textContent = boothData.assemblyName;
           displayBooth.textContent = boothData.boothNo;
           displayTotal.textContent = totalVoters;
-
           if (data.voters) {
             voters = data.voters;
             if (voters.length !== totalVoters) {
-              const newVoters = Array.from({ length: totalVoters }, (_, i) => {
-                return voters[i] || { status: '', updatedAt: null };
-              });
-              voters = newVoters;
-              if (!isReadOnly && currentUser) {
-                set(ref(db, `booths/${boothId}/voters`), voters);
-              }
+              voters = Array.from({ length: totalVoters }, (_, i) => voters[i] || { status: '', updatedAt: null });
+              if (!isReadOnly && currentUser) set(ref(db, `booths/${boothId}/voters`), voters);
             }
           } else {
-            voters = Array.from({ length: totalVoters }, () => ({ status: '', updatedAt: null }));
-            if (!isReadOnly && currentUser) {
-              set(ref(db, `booths/${boothId}/voters`), voters);
-            }
+            voters = Array(totalVoters).fill({ status: '', updatedAt: null });
+            if (!isReadOnly && currentUser) set(ref(db, `booths/${boothId}/voters`), voters);
           }
         } else {
           if (!isReadOnly && currentUser) {
-            const initialData = {
-              ...boothData,
-              voters: Array.from({ length: totalVoters }, () => ({ status: '', updatedAt: null }))
-            };
-            set(dbRef, initialData);
-            voters = initialData.voters;
-          } else {
-            voters = [];
-          }
+            const init = { ...boothData, voters: Array(totalVoters).fill({ status: '', updatedAt: null }) };
+            set(dbRef, init); voters = init.voters;
+          } else voters = [];
         }
         renderTable();
-      }, (error) => {
-        console.error('❌ Firebase read failed:', error);
-        tbody.innerHTML = `<tr><td colspan="3" class="empty-message">Error: ${error.message}</td></tr>`;
-      });
+      }, (err) => { console.error(err); tbody.innerHTML = `<tr><td colspan="3" class="empty-message">Error: ${err.message}</td></tr>`; });
     }
 
     function updateVoterStatus(index, newStatus) {
-      if (isReadOnly || !currentUser || index < 0 || index >= voters.length) return;
-      const updatedVoter = { status: newStatus, updatedAt: new Date().toISOString() };
-      const updates = {};
-      updates[`voters/${index}`] = updatedVoter;
+      if (isReadOnly || !currentUser) return;
+      const updates = {}; updates[`voters/${index}`] = { status: newStatus, updatedAt: new Date().toISOString() };
       update(dbRef, updates);
     }
 
     function computeStats() {
       let our = 0, polled = 0, ourPolled = 0;
-      voters.forEach(v => {
-        if (v.status === 'our') our++;
-        else if (v.status === 'polled') polled++;
-        else if (v.status === 'ourpolled') ourPolled++;
-      });
+      voters.forEach(v => { if (v.status === 'our') our++; else if (v.status === 'polled') polled++; else if (v.status === 'ourpolled') ourPolled++; });
       return { our: our + ourPolled, polled: polled + ourPolled, ourPolled, ourBalance: our, totalBalance: totalVoters - (polled + ourPolled), totalVoters };
     }
 
     function renderStats() {
-      const s = computeStats();
-      const percent = (v) => totalVoters ? ((v/totalVoters)*100).toFixed(1)+'%' : '0.0%';
+      const s = computeStats(); const p = (v) => totalVoters ? ((v/totalVoters)*100).toFixed(1)+'%' : '0.0%';
       statsContainer.innerHTML = `
-        <div class="stat-card"><div class="stat-value stat-our">${s.our}<span class="stat-percent">${percent(s.our)}</span></div><div class="stat-label">Our Votes</div></div>
-        <div class="stat-card"><div class="stat-value stat-polled">${s.polled}<span class="stat-percent">${percent(s.polled)}</span></div><div class="stat-label">Total Polled</div></div>
-        <div class="stat-card"><div class="stat-value stat-ourpolled">${s.ourPolled}<span class="stat-percent">${percent(s.ourPolled)}</span></div><div class="stat-label">Our Polled</div></div>
-        <div class="stat-card"><div class="stat-value stat-balance">${s.ourBalance}<span class="stat-percent">${percent(s.ourBalance)}</span></div><div class="stat-label">Our Balance</div></div>
-        <div class="stat-card"><div class="stat-value">${s.totalBalance}<span class="stat-percent">${percent(s.totalBalance)}</span></div><div class="stat-label">Total Balance</div></div>
+        <div class="stat-card"><div class="stat-value stat-our">${s.our}<span class="stat-percent">${p(s.our)}</span></div><div class="stat-label">Our Votes</div></div>
+        <div class="stat-card"><div class="stat-value stat-polled">${s.polled}<span class="stat-percent">${p(s.polled)}</span></div><div class="stat-label">Total Polled</div></div>
+        <div class="stat-card"><div class="stat-value stat-ourpolled">${s.ourPolled}<span class="stat-percent">${p(s.ourPolled)}</span></div><div class="stat-label">Our Polled</div></div>
+        <div class="stat-card"><div class="stat-value stat-balance">${s.ourBalance}<span class="stat-percent">${p(s.ourBalance)}</span></div><div class="stat-label">Our Balance</div></div>
+        <div class="stat-card"><div class="stat-value">${s.totalBalance}<span class="stat-percent">${p(s.totalBalance)}</span></div><div class="stat-label">Total Balance</div></div>
       `;
     }
 
     function getFilteredVoters() {
-      let filtered = voters.map((v, idx) => ({ ...v, originalIndex: idx }));
-      if (currentFilter !== 'all') {
-        filtered = filtered.filter(v => currentFilter === 'none' ? v.status === '' : v.status === currentFilter);
-      }
-      if (searchTerm.trim()) {
-        const term = searchTerm.trim().toLowerCase();
-        filtered = filtered.filter(v => (v.originalIndex+1).toString().includes(term) || (v.status||'unmarked').toLowerCase().includes(term));
+      let filtered = voters.map((v, i) => ({ ...v, originalIndex: i }));
+      if (currentFilter !== 'all') filtered = filtered.filter(v => currentFilter === 'none' ? !v.status : v.status === currentFilter);
+      if (searchTerm) {
+        const t = searchTerm.toLowerCase();
+        filtered = filtered.filter(v => (v.originalIndex+1).toString().includes(t) || (v.status||'unmarked').toLowerCase().includes(t));
       }
       return filtered;
     }
 
     function renderTable() {
-      if (!voters.length) {
-        tbody.innerHTML = `<tr><td colspan="3" class="empty-message">Waiting for data...</td></tr>`;
-        renderStats();
-        return;
-      }
+      if (!voters.length) { tbody.innerHTML = `<tr><td colspan="3" class="empty-message">Waiting for data...</td></tr>`; renderStats(); return; }
       const filtered = getFilteredVoters();
-      if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" class="empty-message"><i class="fas fa-user-slash"></i> No voters match criteria</td></tr>`;
-      } else {
-        let html = '';
-        filtered.forEach(item => {
-          const idx = item.originalIndex;
-          const status = item.status;
-          const updated = item.updatedAt ? new Date(item.updatedAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—';
-          const statusClass = status ? `status-${status}` : 'status-none';
-          const statusDisplay = status ? status.toUpperCase() : '—';
+      if (!filtered.length) { tbody.innerHTML = `<tr><td colspan="3" class="empty-message">No voters match</td></tr>`; }
+      else {
+        tbody.innerHTML = filtered.map(item => {
+          const idx = item.originalIndex, s = item.status, updated = item.updatedAt ? new Date(item.updatedAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—';
+          const statusClass = s ? `status-${s}` : 'status-none', statusDisplay = s ? s.toUpperCase() : '—';
           const selectedClass = (selectedIndex === idx && !isReadOnly && currentUser) ? 'selected-row' : '';
-          let slClass = 'sl-col';
-          if (status === 'our') slClass += ' sl-our';
-          else if (status === 'polled') slClass += ' sl-polled';
-          else if (status === 'ourpolled') slClass += ' sl-ourpolled';
-          html += `<tr class="voter-row ${selectedClass}" data-index="${idx}">
-            <td class="${slClass}">${idx+1}</td>
-            <td><span class="status-badge ${statusClass}">${statusDisplay}</span></td>
-            <td>${updated}</td>
-          </tr>`;
-        });
-        tbody.innerHTML = html;
+          let slClass = 'sl-col'; if (s === 'our') slClass += ' sl-our'; else if (s === 'polled') slClass += ' sl-polled'; else if (s === 'ourpolled') slClass += ' sl-ourpolled';
+          return `<tr class="voter-row ${selectedClass}" data-index="${idx}"><td class="${slClass}">${idx+1}</td><td><span class="status-badge ${statusClass}">${statusDisplay}</span></td><td>${updated}</td></tr>`;
+        }).join('');
       }
-      selectedInfo.textContent = (selectedIndex !== -1 && selectedIndex < voters.length) 
-        ? `Selected: Voter #${selectedIndex+1} (${voters[selectedIndex].status || 'unmarked'})` 
-        : 'No voter selected';
+      selectedInfo.textContent = (selectedIndex !== -1) ? `Selected: Voter #${selectedIndex+1} (${voters[selectedIndex]?.status || 'unmarked'})` : 'No voter selected';
       renderStats();
     }
 
     function applyReadOnlyMode() {
       const canEdit = !isReadOnly && currentUser;
       readonlyIndicator.style.display = isReadOnly ? 'inline-flex' : 'none';
-      markOurBtn.disabled = !canEdit;
-      markPolledBtn.disabled = !canEdit;
-      removeStatusBtn.disabled = !canEdit;
-      resetAllBtn.disabled = !canEdit;
+      markOurBtn.disabled = markPolledBtn.disabled = removeStatusBtn.disabled = resetAllBtn.disabled = !canEdit;
       backBtn.textContent = isReadOnly ? 'Back to Setup' : 'Change Booth';
     }
 
-    tbody.addEventListener('click', (e) => {
+    tbody.addEventListener('click', e => {
       if (isReadOnly || !currentUser) return;
-      const row = e.target.closest('tr.voter-row');
-      if (!row) return;
-      selectedIndex = parseInt(row.dataset.index);
-      renderTable();
+      const row = e.target.closest('tr.voter-row'); if (!row) return;
+      selectedIndex = parseInt(row.dataset.index); renderTable();
     });
-    tbody.addEventListener('dblclick', (e) => {
+    tbody.addEventListener('dblclick', e => {
       if (isReadOnly || !currentUser) return;
-      const row = e.target.closest('tr.voter-row');
-      if (!row) return;
+      const row = e.target.closest('tr.voter-row'); if (!row) return;
       const idx = parseInt(row.dataset.index);
-      const current = voters[idx].status;
-      if (current === 'our') updateVoterStatus(idx, '');
-      else if (current === 'polled') updateVoterStatus(idx, 'ourpolled');
-      else if (current === 'ourpolled') updateVoterStatus(idx, 'polled');
+      const cur = voters[idx].status;
+      if (cur === 'our') updateVoterStatus(idx, '');
+      else if (cur === 'polled') updateVoterStatus(idx, 'ourpolled');
+      else if (cur === 'ourpolled') updateVoterStatus(idx, 'polled');
       else updateVoterStatus(idx, 'our');
       selectedIndex = idx;
     });
@@ -512,34 +466,17 @@
       if (selectedIndex === -1) { alert('Select a voter first.'); return; }
       cb(selectedIndex);
     }
-    markOurBtn.addEventListener('click', () => applyToSelected(idx => {
-      const s = voters[idx].status;
-      updateVoterStatus(idx, s === 'polled' ? 'ourpolled' : 'our');
-    }));
-    markPolledBtn.addEventListener('click', () => applyToSelected(idx => {
-      const s = voters[idx].status;
-      updateVoterStatus(idx, s === 'our' ? 'ourpolled' : 'polled');
-    }));
-    removeStatusBtn.addEventListener('click', () => applyToSelected(idx => updateVoterStatus(idx, '')));
-    filterBtns.forEach(btn => btn.addEventListener('click', () => {
-      filterBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentFilter = btn.dataset.filter;
-      renderTable();
-    }));
-    searchInput.addEventListener('input', (e) => { searchTerm = e.target.value; renderTable(); });
-    resetAllBtn.addEventListener('click', () => {
-      if (isReadOnly || !currentUser) return;
-      if (confirm('Reset all voter statuses?')) {
-        set(ref(db, `booths/${boothId}/voters`), Array(totalVoters).fill({ status: '', updatedAt: null }));
-      }
-    });
+    markOurBtn.addEventListener('click', () => applyToSelected(i => updateVoterStatus(i, voters[i].status === 'polled' ? 'ourpolled' : 'our')));
+    markPolledBtn.addEventListener('click', () => applyToSelected(i => updateVoterStatus(i, voters[i].status === 'our' ? 'ourpolled' : 'polled')));
+    removeStatusBtn.addEventListener('click', () => applyToSelected(i => updateVoterStatus(i, '')));
+    filterBtns.forEach(b => b.addEventListener('click', () => { filterBtns.forEach(x => x.classList.remove('active')); b.classList.add('active'); currentFilter = b.dataset.filter; renderTable(); }));
+    searchInput.addEventListener('input', e => { searchTerm = e.target.value; renderTable(); });
+    resetAllBtn.addEventListener('click', () => { if (isReadOnly || !currentUser) return; if (confirm('Reset all?')) set(ref(db, `booths/${boothId}/voters`), Array(totalVoters).fill({ status: '', updatedAt: null })); });
     shareViewLinkBtn.addEventListener('click', () => {
       const url = `${location.origin}${location.pathname}?booth=${encodeURIComponent(boothId)}&mode=view`;
       navigator.clipboard.writeText(url).then(() => alert('📋 Viewer link copied!')).catch(() => prompt('Copy:', url));
     });
     backBtn.addEventListener('click', () => location.href = 'index.html');
-
     applyReadOnlyMode();
   })();
 </script>
