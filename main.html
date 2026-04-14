@@ -9,6 +9,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDlC7XS3V0TaKHY1O-_oN9ml0dNPl_OWic",
@@ -21,13 +22,16 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const auth = getAuth(app);
     window.db = db;
+    window.auth = auth;
     window.firebaseRef = ref;
     window.firebaseSet = set;
     window.firebaseUpdate = update;
     window.firebaseOnValue = onValue;
   </script>
   <style>
+    /* All existing styles remain exactly the same */
     :root {
       --bg1: #0f172a;
       --bg2: #1e293b;
@@ -258,6 +262,28 @@
       margin-right: 8px;
       box-shadow: 0 0 10px #4ade80;
     }
+    .login-card {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    .login-card h2 {
+      margin-bottom: 16px;
+      font-size: 1.5rem;
+    }
+    .login-card input {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--card-border);
+      background: rgba(15,23,42,0.6);
+      color: var(--text);
+      font-size: 1rem;
+      margin-bottom: 12px;
+    }
+    .login-card .btn {
+      width: 100%;
+      justify-content: center;
+    }
     @media (max-width: 700px) {
       .glass-card { padding: 18px; }
       .booth-header { flex-direction: column; align-items: start; }
@@ -267,6 +293,7 @@
 </head>
 <body>
 <div class="app-container">
+  <!-- Booth Header Card -->
   <div class="glass-card">
     <div class="booth-header">
       <div class="booth-info">
@@ -282,12 +309,24 @@
         <button class="btn btn-outline" id="backToBoothBtn"><i class="fas fa-arrow-left"></i> Change Booth</button>
         <button class="btn btn-primary" id="shareViewLinkBtn"><i class="fas fa-share-alt"></i> Copy Viewer Link</button>
         <button class="btn btn-outline btn-danger" id="resetAllBtn"><i class="fas fa-undo-alt"></i> Reset List</button>
+        <button class="btn btn-outline" id="logoutBtn" style="display:none;"><i class="fas fa-sign-out-alt"></i> Logout</button>
       </div>
     </div>
     <div class="stats-grid" id="statsContainer"></div>
   </div>
 
-  <div class="glass-card">
+  <!-- Login Card (shown only in edit mode when not logged in) -->
+  <div class="glass-card login-card" id="loginCard" style="display: none;">
+    <h2><i class="fas fa-lock" style="margin-right: 8px;"></i> Editor Login</h2>
+    <p style="color: var(--muted); margin-bottom: 20px;">Enter the shared editor credentials to modify data.</p>
+    <input type="email" id="loginEmail" placeholder="Email" autocomplete="email">
+    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+    <button class="btn btn-primary" id="loginBtn">Log In</button>
+    <div id="loginError" style="color: var(--danger); font-size: 0.9rem; margin-top: 12px;"></div>
+  </div>
+
+  <!-- Voter Table Card -->
+  <div class="glass-card" id="voterCard">
     <div class="controls-bar">
       <div class="search-wrapper">
         <i class="fas fa-search"></i>
@@ -315,7 +354,7 @@
           <tr><th>Sl. No</th><th>Status</th><th>Last Updated</th></tr>
         </thead>
         <tbody id="voterTableBody">
-          <tr><td colspan="3" class="empty-message">Connecting to Firebase...</td></tr>
+          <tr><td colspan="3" class="empty-message">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -330,11 +369,13 @@
 <script type="module">
   setTimeout(async () => {
     const db = window.db;
+    const auth = window.auth;
     const ref = window.firebaseRef;
     const set = window.firebaseSet;
     const update = window.firebaseUpdate;
     const onValue = window.firebaseOnValue;
 
+    // Parse URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const boothId = urlParams.get('booth');
     const mode = urlParams.get('mode') || 'edit';
@@ -349,6 +390,7 @@
       votersCount: totalVoters
     };
 
+    // DOM elements
     const displayAssembly = document.getElementById('displayAssembly');
     const displayBooth = document.getElementById('displayBooth');
     const displayTotal = document.getElementById('displayTotal');
@@ -359,6 +401,13 @@
     const selectedInfo = document.getElementById('selectedInfo');
     const readonlyIndicator = document.getElementById('readonlyIndicator');
     const connectionIndicator = document.getElementById('connectionIndicator');
+    const loginCard = document.getElementById('loginCard');
+    const voterCard = document.getElementById('voterCard');
+    const loginEmail = document.getElementById('loginEmail');
+    const loginPassword = document.getElementById('loginPassword');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginError = document.getElementById('loginError');
+    const logoutBtn = document.getElementById('logoutBtn');
 
     const backBtn = document.getElementById('backToBoothBtn');
     const shareViewLinkBtn = document.getElementById('shareViewLinkBtn');
@@ -367,12 +416,15 @@
     const markPolledBtn = document.getElementById('markPolledBtn');
     const removeStatusBtn = document.getElementById('removeStatusBtn');
 
+    // State
     let voters = [];
     let selectedIndex = -1;
     let currentFilter = 'all';
     let searchTerm = '';
     let isReadOnly = (mode === 'view');
+    let currentUser = null;
     let dbRef = null;
+    let dataListenerUnsubscribe = null;
 
     displayAssembly.textContent = boothData.assemblyName;
     displayBooth.textContent = boothData.boothNo;
@@ -386,53 +438,53 @@
 
     dbRef = ref(db, `booths/${boothId}`);
 
-    onValue(dbRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        if (data.assemblyName) boothData.assemblyName = data.assemblyName;
-        if (data.boothNo) boothData.boothNo = data.boothNo;
-        if (data.votersCount) totalVoters = data.votersCount;
-        displayAssembly.textContent = boothData.assemblyName;
-        displayBooth.textContent = boothData.boothNo;
-        displayTotal.textContent = totalVoters;
-
-        if (data.voters) {
-          voters = data.voters;
-          if (voters.length !== totalVoters) {
-            const newVoters = Array.from({ length: totalVoters }, (_, i) => {
-              return voters[i] || { status: '', updatedAt: null };
-            });
-            voters = newVoters;
-            if (!isReadOnly) {
-              set(ref(db, `booths/${boothId}/voters`), voters);
-            }
-          }
-        } else {
-          voters = Array.from({ length: totalVoters }, () => ({ status: '', updatedAt: null }));
-          if (!isReadOnly) {
-            set(ref(db, `booths/${boothId}/voters`), voters);
-          }
-        }
+    // ---------- Authentication State Listener ----------
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      const needsAuth = !isReadOnly && !user;
+      
+      if (needsAuth) {
+        // Edit mode but not logged in -> show login, hide voter card
+        loginCard.style.display = 'block';
+        voterCard.style.display = 'none';
+        logoutBtn.style.display = 'none';
       } else {
-        if (!isReadOnly) {
-          const initialData = {
-            ...boothData,
-            voters: Array.from({ length: totalVoters }, () => ({ status: '', updatedAt: null }))
-          };
-          set(dbRef, initialData);
-          voters = initialData.voters;
-        } else {
-          voters = [];
+        loginCard.style.display = 'none';
+        voterCard.style.display = 'block';
+        logoutBtn.style.display = (user && !isReadOnly) ? 'inline-flex' : 'none';
+        
+        // Initialize data listener if not already done
+        if (!dataListenerUnsubscribe) {
+          setupDataListener();
         }
       }
-      renderTable();
       applyReadOnlyMode();
-    }, (error) => {
-      console.error('Firebase read failed:', error);
-      tbody.innerHTML = `<tr><td colspan="3" class="empty-message">Error connecting to database. Check console.</td></tr>`;
-      connectionIndicator.innerHTML = `<span style="color: var(--danger);">⚠️ Offline</span>`;
     });
 
+    // Login button
+    loginBtn.addEventListener('click', async () => {
+      const email = loginEmail.value.trim();
+      const password = loginPassword.value;
+      if (!email || !password) {
+        loginError.textContent = 'Please enter both email and password.';
+        return;
+      }
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        loginError.textContent = '';
+        loginEmail.value = '';
+        loginPassword.value = '';
+      } catch (error) {
+        loginError.textContent = error.message;
+      }
+    });
+
+    // Logout button
+    logoutBtn.addEventListener('click', async () => {
+      await signOut(auth);
+    });
+
+    // Connection status
     const connectedRef = ref(db, '.info/connected');
     onValue(connectedRef, (snap) => {
       if (snap.val() === true) {
@@ -442,8 +494,57 @@
       }
     });
 
+    // ---------- Data Functions ----------
+    function setupDataListener() {
+      dataListenerUnsubscribe = onValue(dbRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          if (data.assemblyName) boothData.assemblyName = data.assemblyName;
+          if (data.boothNo) boothData.boothNo = data.boothNo;
+          if (data.votersCount) totalVoters = data.votersCount;
+          displayAssembly.textContent = boothData.assemblyName;
+          displayBooth.textContent = boothData.boothNo;
+          displayTotal.textContent = totalVoters;
+
+          if (data.voters) {
+            voters = data.voters;
+            if (voters.length !== totalVoters) {
+              const newVoters = Array.from({ length: totalVoters }, (_, i) => {
+                return voters[i] || { status: '', updatedAt: null };
+              });
+              voters = newVoters;
+              if (!isReadOnly && currentUser) {
+                set(ref(db, `booths/${boothId}/voters`), voters);
+              }
+            }
+          } else {
+            voters = Array.from({ length: totalVoters }, () => ({ status: '', updatedAt: null }));
+            if (!isReadOnly && currentUser) {
+              set(ref(db, `booths/${boothId}/voters`), voters);
+            }
+          }
+        } else {
+          if (!isReadOnly && currentUser) {
+            const initialData = {
+              ...boothData,
+              voters: Array.from({ length: totalVoters }, () => ({ status: '', updatedAt: null }))
+            };
+            set(dbRef, initialData);
+            voters = initialData.voters;
+          } else {
+            voters = [];
+          }
+        }
+        renderTable();
+      }, (error) => {
+        console.error('Firebase read failed:', error);
+        tbody.innerHTML = `<tr><td colspan="3" class="empty-message">Error connecting to database.</td></tr>`;
+        connectionIndicator.innerHTML = `<span style="color: var(--danger);">⚠️ Offline</span>`;
+      });
+    }
+
     function updateVoterStatus(index, newStatus) {
-      if (isReadOnly || index < 0 || index >= voters.length) return;
+      if (isReadOnly || !currentUser || index < 0 || index >= voters.length) return;
       const oldStatus = voters[index].status;
       if (oldStatus === newStatus) return;
       
@@ -502,6 +603,7 @@
     function renderTable() {
       if (!voters.length) {
         tbody.innerHTML = `<tr><td colspan="3" class="empty-message">Waiting for data...</td></tr>`;
+        renderStats();
         return;
       }
       const filtered = getFilteredVoters();
@@ -515,7 +617,7 @@
           const updated = item.updatedAt ? new Date(item.updatedAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '—';
           const statusClass = status ? `status-${status}` : 'status-none';
           const statusDisplay = status ? status.toUpperCase() : '—';
-          const selectedClass = (selectedIndex === idx && !isReadOnly) ? 'selected-row' : '';
+          const selectedClass = (selectedIndex === idx && !isReadOnly && currentUser) ? 'selected-row' : '';
           let slClass = 'sl-col';
           if (status === 'our') slClass += ' sl-our';
           else if (status === 'polled') slClass += ' sl-polled';
@@ -537,25 +639,22 @@
     }
 
     function applyReadOnlyMode() {
+      const canEdit = !isReadOnly && currentUser;
       if (isReadOnly) {
         readonlyIndicator.style.display = 'inline-flex';
-        markOurBtn.disabled = true;
-        markPolledBtn.disabled = true;
-        removeStatusBtn.disabled = true;
-        resetAllBtn.disabled = true;
-        backBtn.textContent = 'Back to Setup';
       } else {
         readonlyIndicator.style.display = 'none';
-        markOurBtn.disabled = false;
-        markPolledBtn.disabled = false;
-        removeStatusBtn.disabled = false;
-        resetAllBtn.disabled = false;
-        backBtn.textContent = 'Change Booth';
       }
+      markOurBtn.disabled = !canEdit;
+      markPolledBtn.disabled = !canEdit;
+      removeStatusBtn.disabled = !canEdit;
+      resetAllBtn.disabled = !canEdit;
+      backBtn.textContent = isReadOnly ? 'Back to Setup' : 'Change Booth';
     }
 
+    // ---------- Event Listeners ----------
     tbody.addEventListener('click', (e) => {
-      if (isReadOnly) return;
+      if (isReadOnly || !currentUser) return;
       const row = e.target.closest('tr.voter-row');
       if (!row) return;
       const idx = parseInt(row.dataset.index);
@@ -566,7 +665,7 @@
     });
 
     tbody.addEventListener('dblclick', (e) => {
-      if (isReadOnly) return;
+      if (isReadOnly || !currentUser) return;
       const row = e.target.closest('tr.voter-row');
       if (!row) return;
       const idx = parseInt(row.dataset.index);
@@ -581,7 +680,7 @@
     });
 
     function applyToSelected(callback) {
-      if (isReadOnly) { alert('Read‑only mode: cannot modify.'); return; }
+      if (isReadOnly || !currentUser) { alert('You must be logged in as an editor.'); return; }
       if (selectedIndex === -1) { alert('Select a voter first.'); return; }
       callback(selectedIndex);
     }
@@ -615,8 +714,8 @@
     });
 
     resetAllBtn.addEventListener('click', () => {
-      if (isReadOnly) return;
-      if (confirm('Reset all voter statuses? This will clear all marks for everyone.')) {
+      if (isReadOnly || !currentUser) return;
+      if (confirm('Reset all voter statuses?')) {
         const resetVoters = Array.from({ length: totalVoters }, () => ({ status: '', updatedAt: null }));
         set(ref(db, `booths/${boothId}/voters`), resetVoters);
       }
@@ -625,7 +724,7 @@
     shareViewLinkBtn.addEventListener('click', () => {
       const viewerUrl = `${window.location.origin}${window.location.pathname}?booth=${encodeURIComponent(boothId)}&mode=view`;
       navigator.clipboard.writeText(viewerUrl).then(() => {
-        alert('📋 Viewer link copied!\n\nShare this link with your team. They will see live updates but cannot edit.');
+        alert('📋 Viewer link copied! Anyone with this link can view (but not edit) the live data.');
       }).catch(() => {
         prompt('Copy this link manually:', viewerUrl);
       });
