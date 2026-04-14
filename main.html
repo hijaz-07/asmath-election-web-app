@@ -58,6 +58,18 @@
       -webkit-backdrop-filter: blur(18px); border-radius: 28px; box-shadow: var(--shadow);
       padding: 24px 28px; margin-bottom: 24px;
     }
+    .main-heading {
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+      line-height: 1.15;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #fff, #cbd5e1);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding-bottom: 18px;
+    }
     .booth-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
     .booth-info h1 {
       font-size: 1.8rem; background: linear-gradient(135deg, #fff, #cbd5e1);
@@ -159,6 +171,7 @@
       body { padding: 12px; }
       .app-container { max-width: 100%; }
       .glass-card { padding: 18px 16px; border-radius: 24px; margin-bottom: 16px; }
+      .main-heading { font-size: 1.5rem; padding-bottom: 12px; }
 
       .booth-header { flex-direction: column; align-items: stretch; gap: 16px; }
       .booth-info h1 { font-size: 1.5rem; }
@@ -211,6 +224,7 @@
 <div class="app-container">
   <!-- Booth Header Card -->
   <div class="glass-card">
+    <div class="main-heading">TAMIL NADU STATE ASSEMBLY ELECTION</div>
     <div class="booth-header">
       <div class="booth-info">
         <h1 id="displayAssembly">Tamil Nadu Assembly</h1>
