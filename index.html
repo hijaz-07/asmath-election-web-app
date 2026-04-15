@@ -40,6 +40,7 @@ body{min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Se
   const db = getDatabase(app);
   const auth = getAuth(app);
   
+  // Expose everything globally with consistent naming
   window.db = db;
   window.auth = auth;
   window.firebaseRef = ref;
@@ -49,6 +50,8 @@ body{min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Se
   window.firebaseSignInWithEmailLink = signInWithEmailLink;
   window.firebaseOnAuthStateChanged = onAuthStateChanged;
   window.firebaseSignOut = signOut;
+
+  console.log('✅ Firebase initialized');
 </script>
 </head>
 <body>
@@ -127,7 +130,7 @@ body{min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Se
     const STORAGE_LAST_BOOTH = 'lastBooth';
     const STORAGE_PENDING_BOOTH = 'pendingBooth';
 
-    // Load last booth from localStorage (resume feature)
+    // Load last booth
     function loadLastBooth() {
       try {
         const saved = localStorage.getItem(STORAGE_LAST_BOOTH);
@@ -167,7 +170,7 @@ body{min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Se
       f.dispatchEvent(new Event('submit'));
     });
 
-    // If already logged in and whitelisted, redirect to main
+    // Auth state listener
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         const emailKey = user.email.replace(/\./g, ',');
@@ -187,7 +190,7 @@ body{min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Se
       }
     });
 
-    // Handle email link when returning
+    // Handle email link return
     if (isSignInWithEmailLink(auth, window.location.href)) {
       let email = localStorage.getItem('emailForSignIn');
       if (!email) email = prompt('Please confirm your email address for verification');
@@ -216,7 +219,7 @@ body{min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Se
       }
     }
 
-    // Form submit – send email link
+    // Form submit
     f.onsubmit = async (e) => {
       e.preventDefault();
       clearErrors();
@@ -254,6 +257,7 @@ body{min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Se
         statusMsg.textContent = `✅ Login link sent to ${email}. Check your inbox (and spam).`;
       } catch (err) {
         ee.textContent = err.message;
+        console.error('Send link error:', err);
       }
     };
   })();
