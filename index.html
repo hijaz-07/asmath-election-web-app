@@ -40,7 +40,7 @@ body{min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Se
   const db = getDatabase(app);
   const auth = getAuth(app);
   
-  // Expose everything globally with consistent naming
+  // Expose everything globally
   window.db = db;
   window.auth = auth;
   window.firebaseRef = ref;
@@ -51,7 +51,9 @@ body{min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Se
   window.firebaseOnAuthStateChanged = onAuthStateChanged;
   window.firebaseSignOut = signOut;
 
-  console.log('✅ Firebase initialized');
+  // Signal that Firebase is ready
+  window.firebaseReady = true;
+  console.log('✅ Firebase initialized and globals set');
 </script>
 </head>
 <body>
@@ -101,7 +103,14 @@ body{min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Se
 </div></div>
 
 <script>
-  (function() {
+  // Wait for Firebase globals to be ready
+  (function waitForFirebase() {
+    if (!window.firebaseReady || !window.firebaseOnAuthStateChanged) {
+      setTimeout(waitForFirebase, 50);
+      return;
+    }
+    console.log('🔥 Firebase globals detected, starting app');
+    
     const $ = id => document.getElementById(id);
     const f = $("boothForm");
     const a = $("assemblyName");
@@ -130,7 +139,6 @@ body{min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Se
     const STORAGE_LAST_BOOTH = 'lastBooth';
     const STORAGE_PENDING_BOOTH = 'pendingBooth';
 
-    // Load last booth
     function loadLastBooth() {
       try {
         const saved = localStorage.getItem(STORAGE_LAST_BOOTH);
