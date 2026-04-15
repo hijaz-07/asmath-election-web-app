@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-  <title>Live Voter List · Real‑Time Sync</title>
+  <title>Live Voter List · Invitation Only</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getDatabase, ref, set, onValue, update, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDlC7XS3V0TaKHY1O-_oN9ml0dNPl_OWic",
@@ -30,11 +30,11 @@
     window.firebaseSet = set;
     window.firebaseUpdate = update;
     window.firebaseOnValue = onValue;
-    window.firebaseSignIn = signInWithEmailAndPassword;
+    window.firebaseGet = get;
     window.firebaseSignOut = signOut;
     window.firebaseOnAuthStateChanged = onAuthStateChanged;
 
-    console.log('✅ Firebase initialized');
+    console.log('✅ Firebase initialized (main)');
   </script>
   <style>
     /* ========== GLOBAL (Laptop First) ========== */
@@ -149,13 +149,6 @@
       font-weight: 600; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px; margin-left: 12px;
     }
     .connection-status { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #4ade80; margin-right: 8px; box-shadow: 0 0 10px #4ade80; }
-    .login-card { max-width: 400px; margin: 0 auto; }
-    .login-card h2 { margin-bottom: 16px; font-size: 1.5rem; }
-    .login-card input {
-      width: 100%; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--card-border);
-      background: rgba(15,23,42,0.6); color: var(--text); font-size: 1rem; margin-bottom: 12px;
-    }
-    .login-card .btn { width: 100%; justify-content: center; }
 
     .voter-checkbox {
       width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer;
@@ -184,17 +177,13 @@
 
       .controls-bar { flex-direction: column; align-items: stretch; gap: 8px; }
 
-      /* 🔽 ULTRA-COMPACT SEARCH BAR */
       .search-wrapper {
         height: 36px;
         padding: 2px 2px 2px 10px;
         border-radius: 30px;
         align-items: center;
       }
-      .search-wrapper i {
-        font-size: 0.85rem;
-        margin-right: 4px;
-      }
+      .search-wrapper i { font-size: 0.85rem; margin-right: 4px; }
       .search-wrapper input {
         height: 100%;
         padding: 0 6px;
@@ -218,15 +207,10 @@
         th:nth-child(4), td:nth-child(4) { display: none; }
       }
 
-      .login-card { max-width: 100%; margin: 0; }
-      .login-card h2 { font-size: 1.3rem; }
-      .login-card input { padding: 16px; font-size: 16px; }
-
       .footer-note { flex-direction: column; align-items: center; gap: 8px; text-align: center; }
       .readonly-badge { margin-left: 0; margin-top: 8px; }
     }
 
-    /* Extra small devices (max-width: 480px) */
     @media (max-width: 480px) {
       .stats-grid { grid-template-columns: 1fr; }
       .booth-meta { flex-direction: column; gap: 6px; }
@@ -267,16 +251,6 @@
       </div>
     </div>
     <div class="stats-grid" id="statsContainer"></div>
-  </div>
-
-  <!-- Login Card -->
-  <div class="glass-card login-card" id="loginCard" style="display: none;">
-    <h2><i class="fas fa-lock" style="margin-right: 8px;"></i> Editor Login</h2>
-    <p style="color: var(--muted); margin-bottom: 20px;">Enter the shared editor credentials to modify data.</p>
-    <input type="email" id="loginEmail" placeholder="Email" autocomplete="email">
-    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
-    <button class="btn btn-primary" id="loginBtn">Log In</button>
-    <div id="loginError" style="color: var(--danger); font-size: 0.9rem; margin-top: 12px;"></div>
   </div>
 
   <!-- Voter Table Card -->
@@ -330,13 +304,14 @@
 <script>
   (function initWhenReady() {
     if (!window.db || !window.auth) { setTimeout(initWhenReady, 50); return; }
-    console.log('🚀 Starting app');
+    console.log('🚀 Starting main app');
     
     const db = window.db; const auth = window.auth;
     const ref = window.firebaseRef; const set = window.firebaseSet;
     const update = window.firebaseUpdate; const onValue = window.firebaseOnValue;
+    const get = window.firebaseGet;
     const onAuthStateChanged = window.firebaseOnAuthStateChanged;
-    const signIn = window.firebaseSignIn; const signOutUser = window.firebaseSignOut;
+    const signOutUser = window.firebaseSignOut;
 
     const urlParams = new URLSearchParams(window.location.search);
     const boothId = urlParams.get('booth'); const mode = urlParams.get('mode') || 'edit';
@@ -356,12 +331,7 @@
     const selectedInfo = document.getElementById('selectedInfo');
     const readonlyIndicator = document.getElementById('readonlyIndicator');
     const connectionIndicator = document.getElementById('connectionIndicator');
-    const loginCard = document.getElementById('loginCard');
     const voterCard = document.getElementById('voterCard');
-    const loginEmail = document.getElementById('loginEmail');
-    const loginPassword = document.getElementById('loginPassword');
-    const loginBtn = document.getElementById('loginBtn');
-    const loginError = document.getElementById('loginError');
     const logoutBtn = document.getElementById('logoutBtn');
     const backBtn = document.getElementById('backToBoothBtn');
     const shareViewLinkBtn = document.getElementById('shareViewLinkBtn');
@@ -386,34 +356,36 @@
     displayBooth.textContent = boothData.boothNo;
     displayTotal.textContent = totalVoters;
 
-    if (!boothId) { alert('No booth specified.'); window.location.href = 'index.html'; return; }
-    dbRef = ref(db, `booths/${boothId}`);
+    if (!boothId && !isReadOnly) { alert('No booth specified.'); window.location.href = 'index.html'; return; }
+    if (boothId) dbRef = ref(db, `booths/${boothId}`);
 
-    onAuthStateChanged(auth, (user) => {
+    // Authentication + Whitelist Check
+    onAuthStateChanged(auth, async (user) => {
       currentUser = user;
-      const needsAuth = !isReadOnly && !user;
-      if (needsAuth) {
-        loginCard.style.display = 'block'; voterCard.style.display = 'none'; logoutBtn.style.display = 'none';
-      } else {
-        loginCard.style.display = 'none'; voterCard.style.display = 'block';
-        logoutBtn.style.display = (user && !isReadOnly) ? 'inline-flex' : 'none';
-        if (!dataListenerUnsubscribe) setupDataListener();
+      if (!user) {
+        if (!isReadOnly) window.location.href = 'index.html';
+        return;
       }
-      applyReadOnlyMode();
-    });
+      
+      const emailKey = user.email.replace(/\./g, ',');
+      const allowedRef = ref(db, `allowedEditors/${emailKey}`);
+      const snap = await get(allowedRef);
+      if (!snap.exists()) {
+        await signOutUser(auth);
+        alert('Your email is not authorised to edit.');
+        window.location.href = 'index.html';
+        return;
+      }
 
-    loginBtn.addEventListener('click', async () => {
-      const email = loginEmail.value.trim(); const password = loginPassword.value;
-      if (!email || !password) { loginError.textContent = 'Please enter both email and password.'; return; }
-      try {
-        await signIn(auth, email, password);
-        loginError.textContent = ''; loginEmail.value = ''; loginPassword.value = '';
-      } catch (error) { loginError.textContent = error.message; }
+      logoutBtn.style.display = 'inline-flex';
+      if (!dataListenerUnsubscribe && dbRef) setupDataListener();
+      applyReadOnlyMode();
     });
 
     logoutBtn.addEventListener('click', async () => {
       if (confirm('Are you sure you want to log out?')) {
         await signOutUser(auth);
+        window.location.href = 'index.html';
       }
     });
 
@@ -423,6 +395,7 @@
     });
 
     function setupDataListener() {
+      if (!dbRef) return;
       dataListenerUnsubscribe = onValue(dbRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
